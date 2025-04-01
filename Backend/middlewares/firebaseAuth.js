@@ -5,9 +5,7 @@ const verifyFirebaseToken = async (req, res, next) => {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token, authorization denied" });
   }
-
   const token = authHeader.split(" ")[1];
-
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;

@@ -1,0 +1,52 @@
+const express = require("express");
+const router = express.Router();
+const {
+  getPlans,
+  createSubscription,
+  cancelSubscription,
+  handleWebhook,
+  upgradeSubscription,
+  downgradeSubscription,
+  getSubscriptionDetails,
+  updatePaymentMethod,
+  getInvoices,
+  pauseSubscription,
+  reactivateSubscription,
+  getSubscriptionAnalytics,
+} = require("../controllers/subscriptionController");
+const verifyFirebaseToken = require("../middlewares/firebaseAuth");
+const { checkSubscription } = require("../middlewares/subscription");
+
+// Public Routes (Webhook doesn't need authentication)
+router.post("/webhook", handleWebhook);
+
+// Protected Routes (require Firebase authentication)
+router.get("/plans", verifyFirebaseToken, getPlans);
+router.post("/", verifyFirebaseToken, createSubscription);
+router.delete("/", verifyFirebaseToken, cancelSubscription);
+router.put("/upgrade", verifyFirebaseToken, upgradeSubscription);
+router.put("/downgrade", verifyFirebaseToken, downgradeSubscription);
+router.get("/details", verifyFirebaseToken, getSubscriptionDetails);
+router.put("/payment-method", verifyFirebaseToken, updatePaymentMethod);
+router.get("/invoices", verifyFirebaseToken, getInvoices);
+router.post("/pause", verifyFirebaseToken, pauseSubscription);
+router.post("/reactivate", verifyFirebaseToken, reactivateSubscription);
+
+// Admin-only Routes (with subscription feature checks)
+router.get(
+  "/analytics",
+  verifyFirebaseToken,
+  checkSubscription("apiAccess"), // Only available on certain plans
+  getSubscriptionAnalytics
+);
+
+// Feature-protected Routes (using subscription middleware)
+router.get(
+  "/premium-feature",
+  verifyFirebaseToken,
+  checkSubscription("advancedVisualization"), // Example feature check
+  (req, res) => {
+    res.json({ success: true, message: "Premium feature accessed" });
+  }
+);
+module.exports = router;
