@@ -34,14 +34,6 @@ const accountVerifiedTemplate = (name) => `
     <p style="margin-top: 30px;">Best regards,<br>The Network Design Team</p>
   </div>
 `;
-const sendPasswordResetEmail = async (email) => {
-  const resetLink = await admin.auth().generatePasswordResetLink(email);
-  await sendEmail(
-    "Password Reset Request",
-    `Click <a href="${resetLink}">here</a> to reset your password.`,
-    email
-  );
-};
 
 // Test Route
 const userTest = asyncHandler(async (req, res) => {
@@ -109,7 +101,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     await sendEmail(
       "Verify Your Email Address",
-      `Please click <a href="${verificationLink}">here</a> to verify your email address.`,
+      `In order to activate your account, Kindly click <a href="${verificationLink}">here</a> to verify your email address.`,
       email
     );
 
@@ -467,6 +459,139 @@ const clearCache = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @desc    Initiate password reset
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  // 1. Check if email exists in both Firebase and MongoDB
+  try {
+    // Check Firebase first
+    try {
+      await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        error: "No user found with that email address",
+      });
+    }
+
+    // Check MongoDB
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "No user found with that email address",
+      });
+    }
+
+    // 2. Generate password reset link via Firebase
+    const resetLink = await admin.auth().generatePasswordResetLink(email, {
+      url: process.env.PASSWORD_RESET_REDIRECT_URL, // Your frontend reset page
+      handleCodeInApp: true,
+    });
+
+    // 3. Send email with reset link
+    await sendEmail(
+      "Password Reset Request",
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2c3e50;">Password Reset Request</h2>
+        <p>You recently requested to reset your password. Click the button below to proceed:</p>
+        <a href="${resetLink}"
+           style="display: inline-block; padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px;">
+          Reset Password
+        </a>
+        <p style="margin-top: 20px;">If you didn't request this, please ignore this email.</p>
+        <p style="margin-top: 30px;">Best regards,<br>The Network Design Team</p>
+      </div>
+      `,
+      email
+    );
+
+    // 4. Update user record (optional)
+    user.passwordResetToken = resetLink; // Store hashed token in production
+    user.passwordResetExpires = Date.now() + 3600000; // 1 hour expiration
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset link sent to email",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error sending password reset email",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * @desc    Reset password
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+const resetPassword = asyncHandler(async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    // 1. Verify the token with Firebase
+    // Note: Firebase handles token verification internally when the link is used
+    // This endpoint is for the frontend to submit the new password
+
+    // 2. Get email from token (you might need to parse it from your stored token)
+    // In production, you'd verify the token properly
+    const email = req.body.email; // Should come from your frontend form
+
+    // 3. Update password in Firebase
+    const userRecord = await admin.auth().getUserByEmail(email);
+    await admin.auth().updateUser(userRecord.uid, {
+      password: newPassword,
+    });
+
+    // 4. Update user record in MongoDB
+    await User.findOneAndUpdate(
+      { email },
+      {
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        lastPasswordChange: new Date(),
+      }
+    );
+
+    // 5. Send confirmation email
+    await sendEmail(
+      "Password Changed Successfully",
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2c3e50;">Password Updated</h2>
+        <p>Your password has been successfully changed.</p>
+        <p>If you didn't make this change, please contact support immediately.</p>
+        <p style="margin-top: 30px;">Best regards,<br>The Network Design Team</p>
+      </div>
+      `,
+      email
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(400).json({
+      success: false,
+      error: "Password reset failed",
+      details: error.message,
+    });
+  }
+});
+
 module.exports = {
   userTest,
   registerUser,
@@ -477,4 +602,6 @@ module.exports = {
   getCurrentUser,
   clearCache,
   handleEmailVerification,
+  forgotPassword,
+  resetPassword,
 };

@@ -1,9 +1,9 @@
-const nodemailer = require('nodemailer');
-const { google } = require('googleapis');
+const nodemailer = require("nodemailer");
+const { google } = require("googleapis");
 
 const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
-const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
+const REDIRECT_URI = "https://developers.google.com/oauthplayground";
 const REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN;
 const EMAIL_USER = process.env.GMAIL_USER;
 
@@ -19,9 +19,9 @@ const sendEmail = async (subject, message, to, attachments = []) => {
     const accessToken = await oauth2Client.getAccessToken();
 
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
-        type: 'OAuth2',
+        type: "OAuth2",
         user: EMAIL_USER,
         clientId: CLIENT_ID,
         clientSecret: CLIENT_SECRET,
@@ -31,7 +31,7 @@ const sendEmail = async (subject, message, to, attachments = []) => {
     });
 
     const mailOptions = {
-      from: `Smart Clinic <${EMAIL_USER}>`,
+      from: `Network Designer <${EMAIL_USER}>`,
       to: to,
       subject: subject,
       html: message,
@@ -39,9 +39,9 @@ const sendEmail = async (subject, message, to, attachments = []) => {
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', result);
+    console.log("Email sent:", result);
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error("Error sending email:", error);
   }
 };
 

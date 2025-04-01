@@ -9,6 +9,8 @@ const {
   logoutUser,
   getCurrentUser,
   handleEmailVerification,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/userController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 
@@ -16,6 +18,8 @@ const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.get("/", userTest);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 // Protected Routes
 router.get("/all", verifyFirebaseToken, getAllUsers);
