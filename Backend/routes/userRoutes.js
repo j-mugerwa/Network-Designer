@@ -8,6 +8,7 @@ const {
   getAllUsers,
   logoutUser,
   getCurrentUser,
+  handleEmailVerification,
 } = require("../controllers/userController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 
@@ -21,5 +22,6 @@ router.get("/all", verifyFirebaseToken, getAllUsers);
 router.get("/profile/:id", verifyFirebaseToken, getUserProfile);
 router.post("/logout", verifyFirebaseToken, logoutUser);
 router.get("/current", verifyFirebaseToken, getCurrentUser);
+router.post("/verify-email", verifyFirebaseToken, handleEmailVerification);
 
 module.exports = router;
