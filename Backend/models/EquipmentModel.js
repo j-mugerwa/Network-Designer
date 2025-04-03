@@ -26,6 +26,38 @@ const equipmentSchema = new mongoose.Schema(
     typicalUseCase: {
       type: String,
     },
+    imageUrl: {
+      type: String,
+    },
+    datasheetUrl: {
+      type: String,
+    },
+    isPopular: {
+      type: Boolean,
+      default: false,
+    },
+    releaseYear: {
+      type: Number,
+    },
+    endOfLife: {
+      type: Date,
+    },
+    powerConsumption: {
+      type: String,
+    },
+    dimensions: {
+      type: String,
+    },
+    weight: {
+      type: String,
+    },
+    warranty: {
+      type: Number,
+    }, // months
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );
