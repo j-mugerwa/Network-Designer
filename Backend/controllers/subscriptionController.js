@@ -1,7 +1,8 @@
 const SubscriptionPlan = require("../models/SubscriptionPlanModel");
 const User = require("../models/UserModel");
 const axios = require("axios");
-const asycHandler = require("express-async-handler");
+const asyncHandler = require("express-async-handler");
+const { syncPlansFromPaystack } = require("../services/paystackSyncService");
 
 // Initialize Paystack client
 const paystack = axios.create({
@@ -12,7 +13,7 @@ const paystack = axios.create({
   },
 });
 
-const getPlans = asycHandler(async (req, res) => {
+const getPlans = asyncHandler(async (req, res) => {
   try {
     const plans = await SubscriptionPlan.find({ isActive: true });
 
@@ -40,7 +41,7 @@ const getPlans = asycHandler(async (req, res) => {
   }
 });
 
-const createSubscription = asycHandler(async (req, res) => {
+const createSubscription = asyncHandler(async (req, res) => {
   try {
     const { planId, authorization_code } = req.body;
 
@@ -102,7 +103,7 @@ const createSubscription = asycHandler(async (req, res) => {
   }
 });
 
-const cancelSubscription = asycHandler(async (req, res) => {
+const cancelSubscription = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
@@ -131,7 +132,7 @@ const cancelSubscription = asycHandler(async (req, res) => {
   }
 });
 
-const handleWebhook = asycHandler(async (req, res) => {
+const handleWebhook = asyncHandler(async (req, res) => {
   const signature = req.headers["x-paystack-signature"];
   const crypto = require("crypto");
 
@@ -169,6 +170,55 @@ const handleWebhook = asycHandler(async (req, res) => {
   } catch (error) {
     console.error("Webhook error:", error);
     res.status(500).send("Webhook handler failed");
+  }
+});
+
+/**
+ * @desc    Sync plans from Paystack
+ * @route   POST /api/subscriptions/sync-plans
+ * @access  Private (Admin)
+ */
+const syncPlans = asyncHandler(async (req, res) => {
+  try {
+    const result = await syncPlansFromPaystack();
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully synced ${result.synced} plans (${result.failed} failed)`,
+      data: result.results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @desc    Get Paystack plans (for debugging)
+ * @route   GET /api/subscriptions/paystack-plans
+ * @access  Private (Admin)
+ */
+const getPaystackPlans = asyncHandler(async (req, res) => {
+  try {
+    const response = await paystack.get("/plan");
+    res.json({
+      success: true,
+      data: response.data.data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message,
+    });
   }
 });
 
@@ -221,7 +271,7 @@ async function handleSubscriptionCancellation(data) {
  * @route   PUT /api/subscriptions/upgrade
  * @access  Private
  */
-const upgradeSubscription = asycHandler(async (req, res) => {
+const upgradeSubscription = asyncHandler(async (req, res) => {
   try {
     const { newPlanId } = req.body;
     const user = await User.findById(req.user._id);
@@ -296,7 +346,7 @@ const upgradeSubscription = asycHandler(async (req, res) => {
  * @route   PUT /api/subscriptions/downgrade
  * @access  Private
  */
-const downgradeSubscription = asycHandler(async (req, res) => {
+const downgradeSubscription = asyncHandler(async (req, res) => {
   try {
     const { newPlanId } = req.body;
     const user = await User.findById(req.user._id);
@@ -368,7 +418,7 @@ const downgradeSubscription = asycHandler(async (req, res) => {
  * @route   GET /api/subscriptions/details
  * @access  Private
  */
-const getSubscriptionDetails = asycHandler(async (req, res) => {
+const getSubscriptionDetails = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate(
       "subscription.planId"
@@ -417,7 +467,7 @@ const getSubscriptionDetails = asycHandler(async (req, res) => {
  * @route   PUT /api/subscriptions/payment-method
  * @access  Private
  */
-const updatePaymentMethod = asycHandler(async (req, res) => {
+const updatePaymentMethod = asyncHandler(async (req, res) => {
   try {
     const { authorization_code } = req.body;
     const user = await User.findById(req.user._id);
@@ -492,7 +542,7 @@ const updatePaymentMethod = asycHandler(async (req, res) => {
  * @route   GET /api/subscriptions/invoices
  * @access  Private
  */
-const getInvoices = asycHandler(async (req, res) => {
+const getInvoices = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
@@ -533,7 +583,7 @@ const getInvoices = asycHandler(async (req, res) => {
  * @route   POST /api/subscriptions/pause
  * @access  Private
  */
-const pauseSubscription = asycHandler(async (req, res) => {
+const pauseSubscription = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
@@ -571,7 +621,7 @@ const pauseSubscription = asycHandler(async (req, res) => {
  * @route   POST /api/subscriptions/reactivate
  * @access  Private
  */
-const reactivateSubscription = asycHandler(async (req, res) => {
+const reactivateSubscription = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
@@ -615,7 +665,7 @@ const reactivateSubscription = asycHandler(async (req, res) => {
  * @route   GET /api/subscriptions/analytics
  * @access  Private (Admin only)
  */
-const getSubscriptionAnalytics = asycHandler(async (req, res) => {
+const getSubscriptionAnalytics = asyncHandler(async (req, res) => {
   try {
     // Count users per plan
     const planDistribution = await User.aggregate([
@@ -670,6 +720,166 @@ const getSubscriptionAnalytics = asycHandler(async (req, res) => {
   }
 });
 
+/**
+ * @desc    Manually synchronize plans from Paystack to MongoDB
+ * @route   POST /api/subscriptions/sync-plans-now
+ * @access  Private (Admin)
+ */
+const syncPlansNow = asyncHandler(async (req, res) => {
+  try {
+    // 1. Fetch all active plans from Paystack
+    const response = await paystack.get("/plan", {
+      params: {
+        status: "active",
+        perPage: 100, // Adjust based on your expected number of plans
+      },
+    });
+
+    const paystackPlans = response.data.data;
+
+    if (!paystackPlans || paystackPlans.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No active plans found in Paystack",
+      });
+    }
+
+    // 2. Process each plan
+    const syncResults = await Promise.all(
+      paystackPlans.map(async (paystackPlan) => {
+        try {
+          // Map Paystack plan to your MongoDB schema
+          const planData = {
+            name: paystackPlan.name,
+            description: paystackPlan.description || "",
+            price: paystackPlan.amount / 100, // Convert from kobo to naira
+            billingPeriod: getBillingPeriod(paystackPlan.interval),
+            paystackPlanCode: paystackPlan.plan_code,
+            paystackPlanId: paystackPlan.id,
+            isActive: true,
+            //isActive: paystackPlan.status === "active",
+            features: getPlanFeatures(paystackPlan),
+          };
+
+          // Update or create the plan in MongoDB
+          const existingPlan = await SubscriptionPlan.findOneAndUpdate(
+            { paystackPlanCode: paystackPlan.plan_code },
+            planData,
+            { upsert: true, new: true, runValidators: true }
+          );
+
+          return {
+            success: true,
+            planId: existingPlan._id,
+            planCode: existingPlan.paystackPlanCode,
+            action:
+              existingPlan.createdAt.getTime() ===
+              existingPlan.updatedAt.getTime()
+                ? "created"
+                : "updated",
+          };
+        } catch (error) {
+          console.error(`Error syncing plan ${paystackPlan.plan_code}:`, error);
+          return {
+            success: false,
+            planCode: paystackPlan.plan_code,
+            error: error.message,
+          };
+        }
+      })
+    );
+
+    // 3. Deactivate any local plans not in Paystack
+    const activePlanCodes = paystackPlans.map((p) => p.plan_code);
+    const deactivationResult = await SubscriptionPlan.updateMany(
+      {
+        paystackPlanCode: { $nin: activePlanCodes },
+        isActive: true,
+      },
+      { isActive: false }
+    );
+
+    // 4. Prepare response
+    const successfulSyncs = syncResults.filter((r) => r.success);
+    const failedSyncs = syncResults.filter((r) => !r.success);
+
+    res.json({
+      success: true,
+      message: `Synchronization complete. ${successfulSyncs.length} plans processed, ${failedSyncs.length} failed, ${deactivationResult.nModified} plans deactivated.`,
+      stats: {
+        totalPaystackPlans: paystackPlans.length,
+        created: successfulSyncs.filter((r) => r.action === "created").length,
+        updated: successfulSyncs.filter((r) => r.action === "updated").length,
+        failed: failedSyncs.length,
+        deactivated: deactivationResult.nModified,
+      },
+      details: {
+        successful: successfulSyncs,
+        failed: failedSyncs,
+      },
+    });
+  } catch (error) {
+    console.error("Manual plan synchronization failed:", error);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message,
+    });
+  }
+});
+
+// Helper function to convert Paystack interval to billing period
+function getBillingPeriod(interval) {
+  const intervals = {
+    daily: "monthly", // Treat daily as monthly for your system
+    weekly: "monthly", // Treat weekly as monthly
+    monthly: "monthly",
+    quarterly: "annual", // Treat quarterly as annual
+    biannually: "annual",
+    annually: "annual",
+  };
+  return intervals[interval.toLowerCase()] || "monthly";
+}
+
+// Helper function to determine features based on plan
+function getPlanFeatures(paystackPlan) {
+  // Default features
+  const features = {
+    maxDesigns: 5,
+    maxTeamMembers: 1,
+    advancedVisualization: false,
+    equipmentRecommendations: false,
+    configTemplates: false,
+    apiAccess: false,
+    prioritySupport: false,
+    exportFormats: ["pdf"],
+  };
+
+  // Customize based on plan amount or name
+  const amount = paystackPlan.amount / 100; // Convert to Naira
+
+  if (amount >= 500000) {
+    // Premium plan (₦5,000+)
+    features.maxDesigns = 50;
+    features.maxTeamMembers = 10;
+    features.advancedVisualization = true;
+    features.equipmentRecommendations = true;
+    features.configTemplates = true;
+    features.apiAccess = true;
+    features.prioritySupport = true;
+    features.exportFormats = ["pdf", "docx", "csv"];
+  } else if (amount >= 200000) {
+    // Professional plan (₦2,000+)
+    features.maxDesigns = 20;
+    features.maxTeamMembers = 5;
+    features.advancedVisualization = true;
+    features.equipmentRecommendations = true;
+    features.configTemplates = true;
+    features.exportFormats = ["pdf", "docx"];
+  }
+
+  return features;
+}
+
 module.exports = {
   getPlans,
   createSubscription,
@@ -683,4 +893,7 @@ module.exports = {
   pauseSubscription,
   reactivateSubscription,
   getSubscriptionAnalytics,
+  syncPlans,
+  getPaystackPlans,
+  syncPlansNow,
 };

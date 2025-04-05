@@ -1,7 +1,9 @@
 const asyncHandler = require("express-async-handler");
 const User = require("../models/UserModel");
 const admin = require("../config/firebse");
+const axios = require("axios");
 const sendEmail = require("../utils/sendEmail");
+const SubscriptionPlan = require("../models/SubscriptionPlanModel");
 const mongoose = require("mongoose");
 
 // Cache frequently accessed data
@@ -41,6 +43,14 @@ const userTest = asyncHandler(async (req, res) => {
   res.send("Ready to handle employee - User routes..");
 });
 
+const paystack = axios.create({
+  baseURL: "https://api.paystack.co",
+  headers: {
+    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+    "Content-Type": "application/json",
+  },
+});
+
 // User Registration with Email Notification
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, company, role, password } = req.body;
@@ -52,9 +62,9 @@ const registerUser = asyncHandler(async (req, res) => {
       error: "Email and password are required",
     });
   }
-
+  let userRecord;
   try {
-    // Check if user already exists in MongoDB
+    // Check if user already exists
     const existingUser = await User.findOne({ email }).lean();
     if (existingUser) {
       return res.status(409).json({
@@ -63,48 +73,81 @@ const registerUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Create user in Firebase Authentication
-    const userRecord = await admin.auth().createUser({
+    // 1. Create Firebase user
+    userRecord = await admin.auth().createUser({
       email,
       password,
       displayName: name,
-      emailVerified: false, // Will verify via email
+      emailVerified: false,
     });
 
-    // Generate Firebase Custom Token for immediate login
-    const firebaseToken = await admin.auth().createCustomToken(userRecord.uid);
+    // 2. Find the default plan in MongoDB
+    const defaultPlan = await SubscriptionPlan.findOne({
+      name: "Default",
+      isActive: true,
+    });
 
-    // Save user in MongoDB with optimized write
+    if (!defaultPlan) {
+      throw new Error("Default subscription plan not found");
+    }
+
+    // 3. Create Paystack customer
+    const paystackCustomer = await paystack.post("/customer", {
+      email,
+      first_name: name.split(" ")[0],
+      last_name: name.split(" ")[1] || "",
+      metadata: {
+        firebase_uid: userRecord.uid,
+        company,
+      },
+    });
+
+    // 4. Calculate trial period dates
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 30); // 30-day trial
+
+    // 5. Create user in MongoDB with trial status
     const user = await User.create({
       firebaseUID: userRecord.uid,
       name,
       email,
       company,
-      role: role || "user", // Default role
+      role: role || "user",
       lastLogin: new Date(),
+      trial: {
+        used: false,
+        expiresAt: trialEndDate,
+      },
+      subscription: {
+        planId: defaultPlan._id,
+        status: "trial",
+        startDate: new Date(),
+        endDate: trialEndDate,
+        paystackCustomerCode: paystackCustomer.data.data.customer_code,
+        // No subscription code yet - will be added when trial converts to paid
+        paymentMethodId: null, // Will be set when user adds payment method
+      },
     });
 
-    // Clear cache for this email
-    userCache.delete(email);
-
-    // Send welcome email (non-blocking)
-    sendEmail(
-      "Welcome to Our Network Design Platform",
-      welcomeEmailTemplate(name),
-      email
-    ).catch((err) => console.error("Email sending failed:", err));
-
-    // Send verification email via Firebase
+    // 6. Send emails (verification and welcome)
     const verificationLink = await admin
       .auth()
       .generateEmailVerificationLink(email);
 
-    await sendEmail(
-      "Verify Your Email Address",
-      `In order to activate your account, Kindly click <a href="${verificationLink}">here</a> to verify your email address.`,
-      email
-    );
+    await Promise.all([
+      sendEmail(
+        "Welcome to Our Network Design Platform",
+        welcomeEmailTemplate(name),
+        email
+      ),
+      sendEmail(
+        "Verify Your Email Address",
+        `Click <a href="${verificationLink}">here</a> to verify your email.`,
+        email
+      ),
+    ]).catch((err) => console.error("Email sending error:", err));
 
+    // 7. Return response
     res.status(201).json({
       success: true,
       data: {
@@ -113,32 +156,165 @@ const registerUser = asyncHandler(async (req, res) => {
         email: user.email,
         company: user.company,
         role: user.role,
-        firebaseUID: userRecord.uid,
-        firebaseToken,
+        subscription: {
+          plan: defaultPlan.name,
+          status: "trial",
+          trialEnd: trialEndDate,
+        },
+        firebaseToken: await admin.auth().createCustomToken(userRecord.uid),
         createdAt: user.createdAt,
-        message: "Verification email sent",
       },
     });
   } catch (error) {
     console.error("Registration error:", error);
 
-    // Handle specific Firebase errors
-    if (error.code === "auth/email-already-exists") {
-      return res.status(409).json({
-        success: false,
-        error: "Email already in use",
-      });
+    // Cleanup if something failed
+    if (userRecord) {
+      try {
+        await admin.auth().deleteUser(userRecord.uid);
+      } catch (cleanupError) {
+        console.error("Cleanup error:", cleanupError);
+      }
     }
 
-    res.status(500).json({
+    // Handle specific errors
+    const errorMap = {
+      "auth/email-already-exists": "Email already in use",
+      "Default subscription plan not found": "System configuration error",
+      "auth/email-already-in-use": "Email already registered",
+      "auth/invalid-email": "Invalid email address",
+      "auth/weak-password": "Password should be at least 6 characters",
+    };
+
+    res.status(error.response?.status || 500).json({
       success: false,
-      error: "Registration failed",
-      details: error.message,
+      error: errorMap[error.message] || "Registration failed",
+      details: error.response?.data?.message || error.message,
     });
   }
 });
 
-// Add this new endpoint to handle email verification webhook
+//Convert a trial user to a paid plan
+const convertTrialToPaid = asyncHandler(async (req, res) => {
+  const { authorization_code } = req.body;
+  const userId = req.user._id;
+
+  try {
+    // 1. Validate user exists and has active trial
+    const user = await User.findById(userId).populate("subscription.planId");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    // 2. Check trial status
+    if (user.trial.used) {
+      return res.status(400).json({
+        success: false,
+        error: "Trial already converted to paid subscription",
+      });
+    }
+
+    if (new Date() > new Date(user.trial.expiresAt)) {
+      return res.status(400).json({
+        success: false,
+        error: "Trial period has ended. Please sign up for a new subscription.",
+      });
+    }
+
+    // 3. Verify plan exists
+    if (!user.subscription.planId) {
+      return res.status(400).json({
+        success: false,
+        error: "No subscription plan assigned",
+      });
+    }
+
+    // 4. Verify Paystack authorization code
+    const authResponse = await paystack.get(
+      `/transaction/verify/${authorization_code}`
+    );
+
+    if (authResponse.data.data.status !== "success") {
+      return res.status(400).json({
+        success: false,
+        error: "Payment authorization failed",
+        details: authResponse.data.data.message,
+      });
+    }
+
+    // 5. Create Paystack subscription
+    const subscriptionResponse = await paystack.post("/subscription", {
+      customer: user.email,
+      plan: user.subscription.planId.paystackPlanCode,
+      authorization: authorization_code,
+    });
+
+    // 6. Update user record
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        "subscription.status": "active",
+        "subscription.paystackSubscriptionCode":
+          subscriptionResponse.data.data.subscription_code,
+        "subscription.paymentMethodId": authorization_code,
+        "subscription.nextPaymentDate": new Date(
+          subscriptionResponse.data.data.next_payment_date
+        ),
+        "subscription.lastPaymentDate": new Date(),
+        "trial.used": true,
+      },
+      { new: true }
+    ).populate("subscription.planId");
+
+    // 7. Send confirmation email
+    await sendEmail(
+      "Subscription Activated",
+      `Your account has been successfully upgraded to ${updatedUser.subscription.planId.name} plan.`,
+      updatedUser.email
+    ).catch((err) => console.error("Email sending failed:", err));
+
+    res.json({
+      success: true,
+      message: "Trial successfully converted to paid subscription",
+      data: {
+        user: {
+          _id: updatedUser._id,
+          email: updatedUser.email,
+          subscription: {
+            status: updatedUser.subscription.status,
+            plan: updatedUser.subscription.planId.name,
+            nextPaymentDate: updatedUser.subscription.nextPaymentDate,
+          },
+        },
+        paystackData: {
+          subscriptionCode: subscriptionResponse.data.data.subscription_code,
+          customerCode: subscriptionResponse.data.data.customer.customer_code,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Trial conversion error:", {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+    });
+
+    const errorMessage =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to convert trial to paid subscription";
+
+    res.status(error.response?.status || 500).json({
+      success: false,
+      error: errorMessage,
+      details: error.response?.data || null,
+    });
+  }
+});
+//Handle email verification webhook
 const handleEmailVerification = asyncHandler(async (req, res) => {
   const { uid, email } = req.body;
 
@@ -595,6 +771,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 module.exports = {
   userTest,
   registerUser,
+  convertTrialToPaid,
   loginUser,
   getUserProfile,
   getAllUsers,

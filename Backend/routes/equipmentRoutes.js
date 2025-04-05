@@ -29,6 +29,7 @@ router.get(
 );
 
 // Admin-only routes with file upload support
+//checkSubscription("apiAccess"),
 router.post(
   "/",
   verifyFirebaseToken,

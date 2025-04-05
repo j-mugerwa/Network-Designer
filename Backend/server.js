@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 const fs = require("fs");
 const https = require("https");
+const { setupPlanSyncSchedule } = require("./services/schedulerService");
 
 // Load environment variables
 require("dotenv").config();
@@ -18,7 +19,7 @@ dotenv.config();
 
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
-const equipmentRoutes = require("./routes/equipmentRoots");
+const equipmentRoutes = require("./routes/equipmentRoutes");
 // Initialize Express app
 const app = express();
 
@@ -74,6 +75,8 @@ mongoose
   })
   .catch((err) => console.error("MongoDB connection error:", err));
 
+//Synchronise the paystack plans with my local mongo plans
+setupPlanSyncSchedule();
 // Sample Route
 app.get("/", (req, res) => {
   res.send("Welcome to the Network Designer platform.");

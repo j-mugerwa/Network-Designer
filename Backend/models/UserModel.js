@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
       },
       status: {
         type: String,
-        enum: ["active", "canceled", "expired", "past_due", "paused"],
+        enum: ["trial", "active", "canceled", "expired", "past_due", "paused"],
         default: "active",
       },
       startDate: {
@@ -79,6 +79,14 @@ const userSchema = new mongoose.Schema(
     },
     lastPasswordChange: {
       type: Date,
+    },
+    isTrial: {
+      type: Boolean,
+      default: true,
+    },
+    trialExtensionCount: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

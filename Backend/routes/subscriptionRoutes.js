@@ -13,9 +13,15 @@ const {
   pauseSubscription,
   reactivateSubscription,
   getSubscriptionAnalytics,
+  syncPlans,
+  getPaystackPlans,
+  syncPlansNow,
 } = require("../controllers/subscriptionController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
-const { checkSubscription } = require("../middlewares/subscription");
+const {
+  checkSubscription,
+  checkAdmin,
+} = require("../middlewares/subscription");
 
 // Public Routes (Webhook doesn't need authentication)
 router.post("/webhook", handleWebhook);
@@ -32,11 +38,21 @@ router.get("/invoices", verifyFirebaseToken, getInvoices);
 router.post("/pause", verifyFirebaseToken, pauseSubscription);
 router.post("/reactivate", verifyFirebaseToken, reactivateSubscription);
 
-// Admin-only Routes (with subscription feature checks)
+// Admin-only Routes (require admin privileges)
+router.post("/sync-plans", verifyFirebaseToken, checkAdmin, syncPlans);
+router.post("/sync-plans-now", verifyFirebaseToken, syncPlansNow);
+router.get(
+  "/paystack-plans",
+  verifyFirebaseToken,
+  checkAdmin,
+  getPaystackPlans
+);
+
+// Analytics Route (admin or privileged users)
 router.get(
   "/analytics",
   verifyFirebaseToken,
-  checkSubscription("apiAccess"), // Only available on certain plans
+  checkSubscription("apiAccess"),
   getSubscriptionAnalytics
 );
 
@@ -44,9 +60,10 @@ router.get(
 router.get(
   "/premium-feature",
   verifyFirebaseToken,
-  checkSubscription("advancedVisualization"), // Example feature check
+  checkSubscription("advancedVisualization"),
   (req, res) => {
     res.json({ success: true, message: "Premium feature accessed" });
   }
 );
+
 module.exports = router;
