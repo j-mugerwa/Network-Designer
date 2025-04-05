@@ -51,6 +51,11 @@ const userSchema = new mongoose.Schema(
       nextPaymentDate: {
         type: Date,
       },
+      designCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
     trial: {
       used: {

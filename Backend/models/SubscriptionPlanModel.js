@@ -17,6 +17,11 @@ const subscriptionPlanSchema = new mongoose.Schema(
       enum: ["monthly", "annual"],
       default: "monthly",
     },
+    maxDesigns: {
+      type: Number,
+      default: 5,
+      required: true,
+    },
     // The plan code from Paystack
     paystackPlanCode: {
       type: String,

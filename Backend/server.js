@@ -20,6 +20,7 @@ dotenv.config();
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const equipmentRoutes = require("./routes/equipmentRoutes");
+const networkDesignRoutes = require("./routes/designRoutes");
 // Initialize Express app
 const app = express();
 
@@ -53,6 +54,7 @@ app.use((req, res, next) => {
 app.use("/api/users", userRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/equipment", equipmentRoutes);
+app.use("/api/networkdesign", networkDesignRoutes);
 
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
