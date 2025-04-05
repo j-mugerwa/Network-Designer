@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
       status: {
         type: String,
         enum: ["trial", "active", "canceled", "expired", "past_due", "paused"],
-        default: "active",
+        default: "trial",
       },
       startDate: {
         type: Date,

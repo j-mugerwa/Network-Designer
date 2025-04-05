@@ -16,19 +16,24 @@ const verifyFirebaseToken = async (req, res, next) => {
     const user = await User.findOne({ firebaseUID: decodedToken.uid });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found in mongoDb" });
+      return res.status(404).json({ message: "User not found in database" });
     }
 
-    // Attach the MongoDB user document to the request
+    // Attach all necessary user identifiers to the request
     req.user = {
-      firebase: decodedToken,
-      mongo: user, // This contains the _id we need for the user
+      uid: decodedToken.uid, // Firebase UID
+      _id: user._id.toString(), // MongoDB _id
+      email: user.email, // User email
+      fullUserDoc: user, // Entire user document
     };
 
     next();
   } catch (error) {
     console.error("Token verification failed:", error);
-    res.status(401).json({ message: "Invalid token" });
+    res.status(401).json({
+      message: "Invalid token",
+      error: error.message,
+    });
   }
 };
 

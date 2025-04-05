@@ -196,20 +196,13 @@ const registerUser = asyncHandler(async (req, res) => {
 
 //Convert a trial user to a paid plan
 const convertTrialToPaid = asyncHandler(async (req, res) => {
-  const { authorization_code } = req.body;
-  const userId = req.user._id;
+  const { plan_code, payment_reference } = req.body;
+  const { uid, _id, email, fullUserDoc } = req.user;
 
   try {
-    // 1. Validate user exists and has active trial
-    const user = await User.findById(userId).populate("subscription.planId");
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: "User not found",
-      });
-    }
+    const user = fullUserDoc;
 
-    // 2. Check trial status
+    // Check trial status
     if (user.trial.used) {
       return res.status(400).json({
         success: false,
@@ -220,100 +213,159 @@ const convertTrialToPaid = asyncHandler(async (req, res) => {
     if (new Date() > new Date(user.trial.expiresAt)) {
       return res.status(400).json({
         success: false,
-        error: "Trial period has ended. Please sign up for a new subscription.",
+        error: "Trial period has ended",
       });
     }
 
-    // 3. Verify plan exists
-    if (!user.subscription.planId) {
+    // Verify plan exists
+    const planResponse = await paystack.get(`/plan/${plan_code}`);
+    if (!planResponse.data.data) {
       return res.status(400).json({
         success: false,
-        error: "No subscription plan assigned",
+        error: "Invalid plan code",
       });
     }
 
-    // 4. Verify Paystack authorization code
-    const authResponse = await paystack.get(
-      `/transaction/verify/${authorization_code}`
-    );
-
-    if (authResponse.data.data.status !== "success") {
-      return res.status(400).json({
-        success: false,
-        error: "Payment authorization failed",
-        details: authResponse.data.data.message,
+    if (!payment_reference) {
+      // Payment initialization
+      const paymentResponse = await paystack.post("/transaction/initialize", {
+        email: user.email,
+        amount: planResponse.data.data.amount,
+        plan: plan_code,
+        metadata: {
+          firebaseUID: uid,
+          mongoUserId: _id,
+          plan_code,
+          action: "trial_conversion",
+        },
+        callback_url: `${process.env.FRONTEND_URL}/payment-callback`,
       });
-    }
 
-    // 5. Create Paystack subscription
-    const subscriptionResponse = await paystack.post("/subscription", {
-      customer: user.email,
-      plan: user.subscription.planId.paystackPlanCode,
-      authorization: authorization_code,
-    });
+      return res.json({
+        success: true,
+        message: "Payment initialization successful",
+        data: {
+          authorization_url: paymentResponse.data.data.authorization_url,
+          reference: paymentResponse.data.data.reference,
+        },
+      });
+    } else {
+      // Payment verification and subscription creation
+      const verification = await paystack.get(
+        `/transaction/verify/${payment_reference}`
+      );
 
-    // 6. Update user record
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        "subscription.status": "active",
-        "subscription.paystackSubscriptionCode":
-          subscriptionResponse.data.data.subscription_code,
-        "subscription.paymentMethodId": authorization_code,
-        "subscription.nextPaymentDate": new Date(
-          subscriptionResponse.data.data.next_payment_date
-        ),
-        "subscription.lastPaymentDate": new Date(),
-        "trial.used": true,
-      },
-      { new: true }
-    ).populate("subscription.planId");
+      if (verification.data.data.status !== "success") {
+        return res.status(400).json({
+          success: false,
+          error: "Payment verification failed",
+          details: verification.data.data,
+        });
+      }
 
-    // 7. Send confirmation email
-    await sendEmail(
-      "Subscription Activated",
-      `Your account has been successfully upgraded to ${updatedUser.subscription.planId.name} plan.`,
-      updatedUser.email
-    ).catch((err) => console.error("Email sending failed:", err));
+      // Create subscription
+      const subscriptionResponse = await paystack.post("/subscription", {
+        customer: user.email,
+        plan: plan_code,
+        authorization: verification.data.data.authorization.authorization_code,
+      });
 
-    res.json({
-      success: true,
-      message: "Trial successfully converted to paid subscription",
-      data: {
-        user: {
-          _id: updatedUser._id,
-          email: updatedUser.email,
-          subscription: {
-            status: updatedUser.subscription.status,
-            plan: updatedUser.subscription.planId.name,
-            nextPaymentDate: updatedUser.subscription.nextPaymentDate,
+      // Verify subscription creation
+      if (!subscriptionResponse.data.data?.subscription_code) {
+        throw new Error("Paystack subscription creation failed");
+      }
+
+      // Prepare update data with atomic operations
+      const updateData = {
+        $set: {
+          "subscription.status": "active",
+          "subscription.paystackSubscriptionCode":
+            subscriptionResponse.data.data.subscription_code,
+          "subscription.paymentMethodId":
+            verification.data.data.authorization.authorization_code,
+          "subscription.nextPaymentDate": new Date(
+            subscriptionResponse.data.data.next_payment_date
+          ),
+          "subscription.lastPaymentDate": new Date(),
+          "subscription.startDate": new Date(),
+          "subscription.endDate": new Date(
+            new Date().setFullYear(new Date().getFullYear() + 1)
+          ),
+          isTrial: false,
+          "trial.used": true,
+          updatedAt: new Date(),
+        },
+      };
+
+      // Update user document with additional validation
+      const updatedUser = await User.findOneAndUpdate(
+        { _id, "subscription.status": "trial" }, // Only update if status is trial
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+          context: "query",
+        }
+      ).populate("subscription.planId");
+
+      // Verify the update was successful
+      if (!updatedUser || updatedUser.subscription.status !== "active") {
+        console.error("Update verification failed", {
+          updatedUser: updatedUser?.toObject(),
+          updateData,
+        });
+        throw new Error("Failed to update user subscription status");
+      }
+
+      // Send confirmation email
+      await sendEmail(
+        "Subscription Activated",
+        `Your account has been successfully upgraded to ${
+          updatedUser.subscription.planId?.name || planResponse.data.data.name
+        } plan.`,
+        email
+      );
+
+      return res.json({
+        success: true,
+        message: "Subscription created successfully",
+        data: {
+          user: {
+            _id: updatedUser._id,
+            email: updatedUser.email,
+            subscription: {
+              status: updatedUser.subscription.status,
+              planId: updatedUser.subscription.planId,
+              startDate: updatedUser.subscription.startDate,
+              endDate: updatedUser.subscription.endDate,
+            },
+            isTrial: updatedUser.isTrial,
           },
+          subscription: subscriptionResponse.data.data,
         },
-        paystackData: {
-          subscriptionCode: subscriptionResponse.data.data.subscription_code,
-          customerCode: subscriptionResponse.data.data.customer.customer_code,
-        },
-      },
-    });
+      });
+    }
   } catch (error) {
-    console.error("Trial conversion error:", {
+    console.error("Subscription conversion error:", {
       message: error.message,
       stack: error.stack,
       response: error.response?.data,
     });
 
-    const errorMessage =
-      error.response?.data?.message ||
-      error.message ||
-      "Failed to convert trial to paid subscription";
-
-    res.status(error.response?.status || 500).json({
+    res.status(500).json({
       success: false,
-      error: errorMessage,
-      details: error.response?.data || null,
+      error: error.response?.data?.message || error.message,
+      details:
+        process.env.NODE_ENV === "development"
+          ? {
+              stack: error.stack,
+              fullError: error,
+            }
+          : undefined,
     });
   }
 });
+
 //Handle email verification webhook
 const handleEmailVerification = asyncHandler(async (req, res) => {
   const { uid, email } = req.body;
