@@ -2,6 +2,8 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
+const puppeteer = require("puppeteer");
+const Handlebars = require("handlebars");
 
 async function generatePDF(title, content) {
   return new Promise((resolve, reject) => {
@@ -44,124 +46,225 @@ async function generatePDF(title, content) {
   });
 }
 
-// proffesional pdfGenerator.js
+// proffesional pdfGenerator
 /*
 async function generateProfessionalPDF(report) {
-  return new Promise((resolve, reject) => {
+  let browser;
+  try {
+    if (!report || !report.sections) {
+      throw new Error("Invalid report format - missing sections");
+    }
+
     const fileName = `professional_report_${Date.now()}.pdf`;
     const filePath = path.join(__dirname, "../public/reports", fileName);
-    const doc = new PDFDocument({ margin: 50 });
 
-    const stream = fs.createWriteStream(filePath);
-    doc.pipe(stream);
-
-    // Add cover page
-    doc.fontSize(20).text(report.title, { align: "center" });
-    doc.moveDown(2);
-    doc
-      .fontSize(12)
-      .text(`Prepared for: ${report.metadata.client || "Client"}`, {
-        align: "center",
-      });
-    doc.text(
-      `Generated on: ${new Date(
-        report.metadata.generatedAt
-      ).toLocaleDateString()}`,
-      { align: "center" }
-    );
-    doc.addPage();
-
-    // Add sections
-    report.sections.forEach((section) => {
-      doc.fontSize(16).text(section.title, { underline: true });
-      doc.moveDown();
-
-      // Simple HTML to PDF conversion (for real implementation use a proper library)
-      const lines = section.content.split("\n");
-      lines.forEach((line) => {
-        if (line.startsWith("<h2>")) {
-          doc.fontSize(14).text(line.replace(/<[^>]+>/g, ""), { bold: true });
-        } else if (line.startsWith("<table")) {
-          // Implement table rendering
-        } else {
-          doc.fontSize(12).text(line.replace(/<[^>]+>/g, ""));
-        }
-        doc.moveDown();
-      });
-
-      if (section.pageBreak) doc.addPage();
+    // Register Handlebars helpers
+    Handlebars.registerHelper("formatDate", function (date) {
+      return new Date(date).toLocaleDateString();
     });
 
-    doc.end();
-    stream.on("finish", () => resolve(`/reports/${fileName}`));
-    stream.on("error", reject);
-  });
+    // Generate HTML content
+    const template = Handlebars.compile(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #333; }
+          .cover-page { text-align: center; padding: 50px 20px; }
+          .cover-title { font-size: 24px; margin-bottom: 10px; }
+          .section { margin-bottom: 30px; page-break-inside: avoid; }
+          .section-title { font-size: 18px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f5f5f5; }
+          .page-break { page-break-after: always; }
+          @page { margin: 20mm; }
+        </style>
+      </head>
+      <body>
+        <div class="cover-page">
+          <h1 class="cover-title">{{report.title}}</h1>
+          <p>Prepared for: {{report.metadata.client}}</p>
+          <p>Generated on: {{formatDate report.metadata.generatedAt}}</p>
+        </div>
+
+        {{#each report.sections as |section|}}
+          <div class="section">
+            <h2 class="section-title">{{section.title}}</h2>
+            <div>{{{section.content}}}</div>
+          </div>
+          {{#if section.pageBreak}}<div class="page-break"></div>{{/if}}
+        {{/each}}
+      </body>
+      </html>
+    `);
+
+    const html = template({ report });
+
+    // Launch puppeteer
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    // Generate PDF
+    await page.pdf({
+      path: filePath,
+      format: "A4",
+      margin: {
+        top: "20mm",
+        right: "20mm",
+        bottom: "20mm",
+        left: "20mm",
+      },
+      printBackground: true,
+    });
+
+    return `/reports/${fileName}`;
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
 }
 */
+
 async function generateProfessionalPDF(report) {
-  return new Promise((resolve, reject) => {
+  let browser;
+  try {
     if (!report || !report.sections) {
-      return reject(new Error("Invalid report format - missing sections"));
+      throw new Error("Invalid report format - missing sections");
     }
 
-    try {
-      const fileName = `professional_report_${Date.now()}.pdf`;
-      const filePath = path.join(__dirname, "../public/reports", fileName);
-      const doc = new PDFDocument({ margin: 50 });
+    const fileName = `professional_report_${Date.now()}.pdf`;
+    const filePath = path.join(__dirname, "../public/reports", fileName);
 
-      const stream = fs.createWriteStream(filePath);
-      doc.pipe(stream);
-
-      // Add cover page with fallbacks
-      doc
-        .fontSize(20)
-        .text(report.title || "Network Design Report", { align: "center" });
-      doc.moveDown(2);
-      doc
-        .fontSize(12)
-        .text(`Prepared for: ${report.metadata?.client || "Client"}`, {
-          align: "center",
-        });
-      doc.text(
-        `Generated on: ${new Date(
+    // Generate complete HTML document
+    let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+          color: #333;
+          line-height: 1.6;
+        }
+        .cover-page {
+          text-align: center;
+          padding: 50px 20px;
+        }
+        .cover-title {
+          font-size: 24px;
+          margin-bottom: 10px;
+        }
+        .section {
+          margin-bottom: 30px;
+          page-break-inside: avoid;
+        }
+        .section-title {
+          font-size: 18px;
+          border-bottom: 1px solid #ddd;
+          padding-bottom: 5px;
+          margin-bottom: 15px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 15px 0;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+        th {
+          background-color: #f5f5f5;
+        }
+        .page-break {
+          page-break-after: always;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="cover-page">
+        <h1 class="cover-title">${report.title}</h1>
+        <p>Prepared for: ${report.metadata?.client || "Client"}</p>
+        <p>Generated on: ${new Date(
           report.metadata?.generatedAt || Date.now()
-        ).toLocaleDateString()}`,
-        { align: "center" }
-      );
-      doc.addPage();
+        ).toLocaleDateString()}</p>
+      </div>
+    `;
 
-      // Process sections
-      report.sections.forEach((section) => {
-        if (!section || !section.title) return;
+    // Add each section
+    report.sections.forEach((section) => {
+      if (!section || !section.title) return;
 
-        doc.fontSize(16).text(section.title, { underline: true });
-        doc.moveDown();
+      html += `
+      <div class="section" style="margin-bottom: ${
+        section.styles?.margin || 30
+      }px;">
+        <h2 class="section-title" style="font-size: ${
+          section.styles?.titleFontSize || 18
+        }px;">
+          ${section.title}
+        </h2>
+        <div style="font-size: ${section.styles?.contentFontSize || 14}px;">
+          ${section.content}
+        </div>
+      </div>
+      `;
 
-        const content = section.content || "";
-        const lines = content.split("\n");
+      if (section.pageBreak) {
+        html += '<div class="page-break"></div>';
+      }
+    });
 
-        lines.forEach((line) => {
-          if (line.startsWith("<h2>")) {
-            doc.fontSize(14).text(line.replace(/<[^>]+>/g, ""), { bold: true });
-          } else if (line.startsWith("<table")) {
-            // Implement table rendering
-          } else {
-            doc.fontSize(12).text(line.replace(/<[^>]+>/g, ""));
-          }
-          doc.moveDown();
-        });
+    html += `</body></html>`;
 
-        if (section.pageBreak) doc.addPage();
-      });
+    // Launch puppeteer
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
 
-      doc.end();
-      stream.on("finish", () => resolve(`/reports/${fileName}`));
-      stream.on("error", reject);
-    } catch (error) {
-      reject(error);
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    // Generate PDF
+    await page.pdf({
+      path: filePath,
+      format: "A4",
+      margin: {
+        top: "20mm",
+        right: "20mm",
+        bottom: "20mm",
+        left: "20mm",
+      },
+      printBackground: true,
+    });
+
+    return `/reports/${fileName}`;
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
     }
-  });
+  }
 }
+
 module.exports = {
   generatePDF,
   generateProfessionalPDF,

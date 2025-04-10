@@ -144,12 +144,15 @@ const generateFromTemplate = asyncHandler(async (req, res) => {
 
     const reportContent = await ReportGenerator.generateFromTemplate(
       design,
-      template
+      template,
+      req.user // Pass the user for metadata
     );
+
     let fileUrl;
 
     if (format === "pdf") {
-      fileUrl = await generatePDF(reportContent.title, reportContent);
+      // Use professional PDF generator for templates
+      fileUrl = await generateProfessionalPDF(reportContent);
     } else {
       // Implement other format generators as needed
       fileUrl = `/reports/${Date.now()}.${format}`;

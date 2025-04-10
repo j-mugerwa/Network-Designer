@@ -22,6 +22,7 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const equipmentRoutes = require("./routes/equipmentRoutes");
 const networkDesignRoutes = require("./routes/designRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const reportTemplateRoutes = require("./routes/reportTemplateRoutes");
 // Initialize Express app
 const app = express();
 
@@ -57,6 +58,7 @@ app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/networkdesign", networkDesignRoutes);
 app.use("/api/report", reportRoutes);
+app.use("/api/reporttemplate", reportTemplateRoutes);
 
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");

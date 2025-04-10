@@ -2,4 +2,5 @@
 .env
 /uploads
 /certs
+/public
 firebase-adminsdk.json

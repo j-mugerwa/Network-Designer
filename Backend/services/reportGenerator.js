@@ -47,6 +47,22 @@ class ReportGenerator {
           return options.inverse(this);
       }
     });
+
+    Handlebars.registerHelper("formatDate", function (date) {
+      return new Date(date).toLocaleDateString();
+    });
+
+    Handlebars.registerHelper("toUpperCase", function (str) {
+      return str?.toUpperCase() || "";
+    });
+
+    Handlebars.registerHelper("ifEquals", function (arg1, arg2, options) {
+      return arg1 == arg2 ? options.fn(this) : options.inverse(this);
+    });
+
+    Handlebars.registerHelper("json", function (context) {
+      return JSON.stringify(context);
+    });
   }
 
   async generateFullReport(design) {
@@ -102,6 +118,28 @@ class ReportGenerator {
         client: design.userId.company || "Client Name",
       },
     };
+  }
+
+  async loadDefaultTemplates() {
+    try {
+      const templatesDir = path.join(__dirname, "../templates");
+      const files = fs.readdirSync(templatesDir);
+
+      this.defaultTemplates = files.reduce((acc, file) => {
+        if (file.endsWith(".hbs")) {
+          const name = path.basename(file, ".hbs");
+          const content = fs.readFileSync(
+            path.join(templatesDir, file),
+            "utf8"
+          );
+          acc[name] = Handlebars.compile(content);
+        }
+        return acc;
+      }, {});
+    } catch (err) {
+      console.error("Failed to load default templates:", err);
+      this.defaultTemplates = {};
+    }
   }
 
   createTitlePage(design) {
@@ -547,36 +585,115 @@ class ReportGenerator {
 
   // ... similar methods for other sections ...
 
-  async generateFromTemplate(design, template) {
+  async generateFromTemplate(design, template, user = null) {
+    // Generate the base report data
     const reportData = await this.generateFullReport(design);
+
+    // Initialize compiled sections array
     const compiledSections = [];
 
-    for (const section of template.sections.sort((a, b) => a.order - b.order)) {
-      // Check conditional logic if present
-      if (section.conditionalLogic) {
-        const shouldInclude = this.evaluateCondition(
-          section.conditionalLogic.expression,
-          reportData
-        );
-        if (!shouldInclude) continue;
-      }
+    // Sort sections by order
+    const sortedSections = template.sections.sort((a, b) => a.order - b.order);
 
-      const compiled = Handlebars.compile(section.contentTemplate);
-      compiledSections.push({
-        title: section.title,
-        key: section.key,
-        content: compiled(reportData),
-      });
+    // Process each section
+    for (const section of sortedSections) {
+      try {
+        // Check conditional logic if present
+        if (section.conditionalLogic) {
+          const shouldInclude = this.evaluateCondition(
+            section.conditionalLogic.expression,
+            reportData
+          );
+          if (!shouldInclude) continue;
+        }
+
+        // Prepare section context with additional helpers
+        const sectionContext = {
+          ...reportData,
+          $section: section,
+          $helpers: {
+            formatCurrency: (value) => `$${value.toLocaleString()}`,
+            formatDate: (date) => new Date(date).toLocaleDateString(),
+            toUpperCase: (str) => str?.toUpperCase() || "",
+          },
+        };
+
+        // Use default template if available, otherwise compile the provided template
+        const templateFn =
+          this.defaultTemplates?.[section.key] ||
+          Handlebars.compile(section.contentTemplate);
+
+        // Compile the section content
+        const compiledContent = templateFn(sectionContext);
+
+        // Add to compiled sections
+        compiledSections.push({
+          title: section.title,
+          key: section.key,
+          content: compiledContent,
+          pageBreak: section.pageBreak || false,
+          styles: section.styles || {
+            titleFontSize: 16,
+            contentFontSize: 12,
+            margin: 50,
+          },
+        });
+      } catch (error) {
+        console.error(`Error processing section ${section.key}:`, error);
+        // Fallback to simple error display in the report
+        compiledSections.push({
+          title: section.title,
+          key: section.key,
+          content: `<div class="error">Error rendering this section: ${error.message}</div>`,
+          pageBreak: false,
+          styles: {
+            titleFontSize: 16,
+            contentFontSize: 12,
+            margin: 50,
+          },
+        });
+      }
     }
 
+    // Prepare metadata
+    const metadata = {
+      template: template.name,
+      templateVersion: template.version,
+      designVersion: design.version,
+      generatedAt: new Date().toISOString(),
+      author: user?.name || "System",
+      client: design.userId?.company || "Client",
+      ...(template.metadata || {}),
+    };
+
+    // Return the complete report structure
     return {
       title: `${design.designName} - ${template.name}`,
       sections: compiledSections,
-      metadata: {
-        template: template.name,
-        templateVersion: template.version,
-        designVersion: design.version,
+      metadata,
+      styles: {
+        coverPage: template.styles?.coverPage || {
+          titleFontSize: 24,
+          subtitleFontSize: 18,
+          logoPosition: "center",
+        },
+        header: template.styles?.header || {
+          fontSize: 10,
+          content: `Report: ${template.name} | ${metadata.client}`,
+        },
+        footer: template.styles?.footer || {
+          fontSize: 10,
+          content: `Page {{page}} of {{pages}} | Generated on ${new Date(
+            metadata.generatedAt
+          ).toLocaleDateString()}`,
+        },
+        table: template.styles?.table || {
+          headerBackground: "#f5f5f5",
+          borderColor: "#dddddd",
+          cellPadding: 5,
+        },
       },
+      rawData: reportData, // Include raw data for debugging or further processing
     };
   }
 
