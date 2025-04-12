@@ -5,6 +5,7 @@ const path = require("path");
 const puppeteer = require("puppeteer");
 const Handlebars = require("handlebars");
 
+/*
 async function generatePDF(title, content) {
   return new Promise((resolve, reject) => {
     try {
@@ -45,6 +46,114 @@ async function generatePDF(title, content) {
     }
   });
 }
+*/
+
+exports.generatePDF = async (content) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument();
+      const buffers = [];
+
+      doc.on("data", buffers.push.bind(buffers));
+      doc.on("end", () => resolve(Buffer.concat(buffers)));
+      doc.on("error", reject);
+
+      // Add title
+      doc.fontSize(20).text(content.title, { align: "center" });
+      doc.moveDown(0.5);
+
+      // Add subtitle
+      doc.fontSize(14).text(content.subtitle, { align: "center" });
+      doc.moveDown(1);
+
+      // Add metadata table
+      doc.fontSize(12);
+      const metadataTop = doc.y;
+      let metadataLeft = 50;
+      let metadataRight = 250;
+
+      Object.entries(content.metadata).forEach(([key, value]) => {
+        doc.text(`${key}:`, metadataLeft, doc.y, {
+          width: 200,
+          continued: true,
+        });
+        doc.text(value.toString(), metadataRight, doc.y, { width: 300 });
+        doc.moveDown(0.7);
+      });
+
+      // Add horizontal line
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+      doc.moveDown(1);
+
+      // Add content sections
+      content.content.forEach((section) => {
+        switch (section.type) {
+          case "heading":
+            doc
+              .fontSize(14 + (4 - section.level))
+              .text(section.text)
+              .moveDown(0.5);
+            break;
+
+          case "text":
+            doc.fontSize(11).text(section.text).moveDown(0.5);
+            break;
+
+          case "code":
+            doc.font("Courier").fontSize(10);
+            const codeHeight = doc.heightOfString(section.text, { width: 500 });
+            doc.rect(50, doc.y, 500, codeHeight + 10).fill("#f5f5f5");
+            doc.fill("black").text(section.text, 60, doc.y + 5, { width: 480 });
+            doc.moveDown(1.5);
+            break;
+
+          case "table":
+            const tableTop = doc.y;
+            const cellPadding = 5;
+            const colWidths = [150, 150, 250];
+
+            // Draw header
+            doc.font("Helvetica-Bold");
+            section.data[0].forEach((cell, i) => {
+              doc.text(
+                cell,
+                50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0),
+                tableTop,
+                {
+                  width: colWidths[i],
+                  padding: cellPadding,
+                }
+              );
+            });
+
+            // Draw rows
+            doc.font("Helvetica");
+            section.data.slice(1).forEach((row, rowIndex) => {
+              const rowTop = tableTop + 20 + rowIndex * 20;
+              row.forEach((cell, i) => {
+                doc.text(
+                  cell,
+                  50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0),
+                  rowTop,
+                  {
+                    width: colWidths[i],
+                    padding: cellPadding,
+                  }
+                );
+              });
+            });
+
+            doc.moveDown(2);
+            break;
+        }
+      });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
 
 // proffesional pdfGenerator
 /*
@@ -266,6 +375,6 @@ async function generateProfessionalPDF(report) {
 }
 
 module.exports = {
-  generatePDF,
+  //generatePDF,
   generateProfessionalPDF,
 };

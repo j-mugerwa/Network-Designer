@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+
 const optimizationSchema = new mongoose.Schema(
   {
     originalDesignId: {
@@ -6,17 +7,78 @@ const optimizationSchema = new mongoose.Schema(
       ref: "NetworkDesign",
       required: true,
     },
-    optimizedDesign: mongoose.Schema.Types.Mixed,
+    optimizedDesignId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "NetworkDesign",
+    },
+    optimizationType: {
+      type: String,
+      enum: ["cost", "performance", "security", "reliability", "hybrid"],
+      required: true,
+    },
     improvements: [
       {
-        area: String,
-        before: String,
-        after: String,
-        impact: String,
+        area: {
+          type: String,
+          enum: [
+            "bandwidth",
+            "equipment",
+            "topology",
+            "security",
+            "redundancy",
+            "ip-scheme",
+          ],
+          required: true,
+        },
+        description: String,
+        before: mongoose.Schema.Types.Mixed,
+        after: mongoose.Schema.Types.Mixed,
+        impact: {
+          type: String,
+          enum: ["high", "medium", "low"],
+        },
+        estimatedSavings: Number,
+        implementationComplexity: {
+          type: String,
+          enum: ["low", "medium", "high"],
+        },
       },
     ],
-    generatedAt: { type: Date, default: Date.now },
+    metrics: {
+      costReduction: Number,
+      performanceImprovement: Number,
+      securityImprovement: Number,
+      reliabilityImprovement: Number,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "applied", "rejected"],
+      default: "pending",
+    },
+    generatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    appliedAt: Date,
+    appliedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
+
+// Virtual for optimization report
+optimizationSchema.virtual("report", {
+  ref: "NetworkReport",
+  localField: "_id",
+  foreignField: "optimizationId",
+  justOne: true,
+});
+
 module.exports = mongoose.model("DesignOptimization", optimizationSchema);

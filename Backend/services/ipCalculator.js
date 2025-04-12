@@ -119,5 +119,4 @@ class IPCalculator {
     };
   }
 }
-
 module.exports = IPCalculator;

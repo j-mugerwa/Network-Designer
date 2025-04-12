@@ -4,11 +4,8 @@ const NetworkDesign = require("../models/NetworkDesignModel");
 const NetworkReport = require("../models/ReportModel");
 const ReportTemplate = require("../models/ReportTemplateModel");
 const ReportGenerator = require("../services/reportGenerator");
-const {
-  generatePDF,
-  generateProfessionalPDF,
-} = require("../services/pdfGenerator"); // You'll need to implement this
-
+const { generateProfessionalPDF } = require("../services/pdfGenerator"); // You'll need to implement this
+const generatePDF = require("../services/pdfGenerator");
 // @desc    Generate a full network design report
 // @route   POST /api/reports/full/:designId
 // @access  Private
