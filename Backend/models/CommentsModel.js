@@ -1,30 +1,89 @@
 const mongoose = require("mongoose");
+const AppError = require("../utils/appError");
+
+const replySchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "User reference is required"],
+    },
+    content: {
+      type: String,
+      required: [true, "Reply content is required"],
+      maxlength: [1000, "Reply cannot exceed 1000 characters"],
+    },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
 const commentSchema = new mongoose.Schema(
   {
     designId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "NetworkDesign",
-      required: true,
+      required: [true, "Design reference is required"],
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "User reference is required"],
     },
-    content: String,
-    replies: [
+    content: {
+      type: String,
+      required: [true, "Comment content is required"],
+      maxlength: [1000, "Comment cannot exceed 1000 characters"],
+    },
+    replies: [replySchema],
+    likes: [
       {
-        userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-          required: true,
-        },
-        content: String,
-        createdAt: { type: Date, default: Date.now },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
       },
     ],
-    createdAt: { type: Date, default: Date.now },
+    resolved: {
+      type: Boolean,
+      default: false,
+    },
+    taggedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
+
+// Indexes
+commentSchema.index({ designId: 1 });
+commentSchema.index({ userId: 1 });
+commentSchema.index({ resolved: 1 });
+commentSchema.index({ createdAt: -1 });
+
+// Virtual populate
+commentSchema.virtual("user", {
+  ref: "User",
+  localField: "userId",
+  foreignField: "_id",
+  justOne: true,
+});
+
+commentSchema.virtual("design", {
+  ref: "NetworkDesign",
+  localField: "designId",
+  foreignField: "_id",
+  justOne: true,
+});
+
 module.exports = mongoose.model("Comment", commentSchema);

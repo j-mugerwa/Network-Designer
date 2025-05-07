@@ -27,6 +27,9 @@ const optimizationRoutes = require("./routes/optimizationRoutes");
 const configurationRoutes = require("./routes/configurationRoutes");
 const versionRoutes = require("./routes/versionRoutes");
 const generatedConfigRoutes = require("./routes/generatedConfigRoutes");
+const collaborationRoutes = require("./routes/collaborationRoutes");
+const teamRoutes = require("./routes/teamRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 // Initialize Express app
 const app = express();
 
@@ -67,6 +70,9 @@ app.use("/api/optimize", optimizationRoutes);
 app.use("/api/configs", configurationRoutes);
 app.use("/api/design-version", versionRoutes);
 app.use("/api/genconfigs", generatedConfigRoutes);
+app.use("/api/collaboration", collaborationRoutes);
+app.use("/api/team", teamRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
