@@ -53,7 +53,7 @@ const paystack = axios.create({
 
 // User Registration with Email Notification
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, company, role, password } = req.body;
+  const { name, email, company, role, password, terms } = req.body;
 
   // Validate input
   if (!email || !password) {
@@ -113,6 +113,7 @@ const registerUser = asyncHandler(async (req, res) => {
       email,
       company,
       role: role || "user",
+      terms: true,
       lastLogin: new Date(),
       trial: {
         used: false,
@@ -127,6 +128,7 @@ const registerUser = asyncHandler(async (req, res) => {
         // No subscription code yet - will be added when trial converts to paid
         paymentMethodId: null, // Will be set when user adds payment method
       },
+      //Shall edit to capture the subscription plan well
     });
 
     // 6. Send emails (verification and welcome)
@@ -156,6 +158,7 @@ const registerUser = asyncHandler(async (req, res) => {
         email: user.email,
         company: user.company,
         role: user.role,
+        terms: user.terms,
         subscription: {
           plan: defaultPlan.name,
           status: "trial",

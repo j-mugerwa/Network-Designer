@@ -292,7 +292,7 @@ const getUserDesigns = asyncHandler(async (req, res) => {
     console.error("Error fetching designs:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch designs",
+      error: "Failed to fetch the designs",
       details:
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });

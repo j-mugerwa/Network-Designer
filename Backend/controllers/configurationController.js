@@ -61,7 +61,7 @@ const getTemplate = asyncHandler(async (req, res, next) => {
   );
 
   if (!template) {
-    return next(AppError.notFound("Configuration template"));
+    return next(AppError.notFound("Configuration template not found"));
   }
 
   res.status(200).json({

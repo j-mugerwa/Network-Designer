@@ -30,6 +30,7 @@ const generatedConfigRoutes = require("./routes/generatedConfigRoutes");
 const collaborationRoutes = require("./routes/collaborationRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const statsRoutes = require("./routes/statsRoutes");
 // Initialize Express app
 const app = express();
 
@@ -39,15 +40,16 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-/*Cors set up
-app.use(cors({
-  origin: 'http://localhost:3000', //frontend URL
-  //origin: '*',
-  credentials: true,
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: 'Content-Type,Authorization'
-}));
-*/
+//Cors set up
+app.use(
+  cors({
+    origin: "http://localhost:3000", //frontend URL
+    //origin: '*',
+    credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: "Content-Type,Authorization",
+  })
+);
 
 // Handle preflight requests
 app.options("*", cors());
@@ -61,7 +63,7 @@ app.use((req, res, next) => {
 // Routes
 
 app.use("/api/users", userRoutes);
-app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/networkdesign", networkDesignRoutes);
 app.use("/api/report", reportRoutes);
@@ -73,6 +75,7 @@ app.use("/api/genconfigs", generatedConfigRoutes);
 app.use("/api/collaboration", collaborationRoutes);
 app.use("/api/team", teamRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/stats", statsRoutes);
 
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");

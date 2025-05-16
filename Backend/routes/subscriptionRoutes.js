@@ -16,6 +16,7 @@ const {
   syncPlans,
   getPaystackPlans,
   syncPlansNow,
+  getActivePlans,
 } = require("../controllers/subscriptionController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 const {
@@ -25,6 +26,8 @@ const {
 
 // Public Routes (Webhook doesn't need authentication)
 router.post("/webhook", handleWebhook);
+//Non Protected Plans response.
+router.get("/activeplans", getActivePlans);
 
 // Protected Routes (require Firebase authentication)
 router.get("/plans", verifyFirebaseToken, getPlans);

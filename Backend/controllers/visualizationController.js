@@ -72,7 +72,7 @@ const getTopology = asyncHandler(async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: "Failed to fetch topology",
+      error: "Failed to fetch the topology",
     });
   }
 });

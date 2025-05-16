@@ -163,7 +163,7 @@ const getEquipment = asyncHandler(async (req, res) => {
     if (!equipment) {
       return res.status(404).json({
         success: false,
-        error: "Equipment not found",
+        error: "Equipment is not found",
       });
     }
 
@@ -308,7 +308,7 @@ const getEquipmentRecommendations = asyncHandler(async (req, res) => {
     if (!design) {
       return res.status(404).json({
         success: false,
-        error: "Network design not found",
+        error: "Network design was not found",
       });
     }
 

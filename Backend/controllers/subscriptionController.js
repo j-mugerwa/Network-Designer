@@ -827,6 +827,25 @@ const syncPlansNow = asyncHandler(async (req, res) => {
   }
 });
 
+//Active plans
+const getActivePlans = asyncHandler(async (req, res) => {
+  try {
+    const plans = await SubscriptionPlan.find({ isActive: true })
+      .select("name description price features")
+      .lean();
+
+    res.json({
+      success: true,
+      data: plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Helper function to convert Paystack interval to billing period
 function getBillingPeriod(interval) {
   const intervals = {
@@ -896,4 +915,5 @@ module.exports = {
   syncPlans,
   getPaystackPlans,
   syncPlansNow,
+  getActivePlans,
 };
