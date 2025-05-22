@@ -6,6 +6,7 @@ import userReducer from "@/store/slices/userSlice";
 import statsReducer from "@/store/slices/statsSlice";
 import subscriptionReducer from "@/store/slices/subscriptionSlice";
 import { useDispatch, useSelector, TypedUseSelectorHook } from "react-redux";
+import dashboardReducer from "@/store/slices/dashboardSlice";
 
 // Improved storage initialization for Next.js SSR compatibility
 const createNoopStorage = () => ({
@@ -41,6 +42,7 @@ export const store = configureStore({
     user: userReducer,
     stats: statsReducer,
     subscriptions: subscriptionReducer,
+    dashboard: dashboardReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

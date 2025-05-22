@@ -4,6 +4,7 @@ const admin = require("../config/firebse");
 const axios = require("axios");
 const sendEmail = require("../utils/sendEmail");
 const SubscriptionPlan = require("../models/SubscriptionPlanModel");
+const LoginHistory = require("../models/LoginHistoryModel");
 const mongoose = require("mongoose");
 
 // Cache frequently accessed data
@@ -51,17 +52,40 @@ const paystack = axios.create({
   },
 });
 
-// User Registration with Email Notification
+//Updated User Registration with Email Notification
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, company, role, password, terms } = req.body;
+  const { name, email, company, role, password, terms, planId } = req.body;
 
-  // Validate input
-  if (!email || !password) {
+  //Inputs validation.
+  const requiredFields = {
+    name: "Full name is required",
+    email: "Email is required",
+    company: "Company name is required",
+    password: "Password is required",
+    terms: "You must accept terms and conditions",
+    planId: "Subscription plan is required",
+  };
+
+  const missingFields = Object.entries(requiredFields)
+    .filter(([field]) => !req.body[field])
+    .map(([_, message]) => message);
+
+  if (missingFields.length > 0) {
     return res.status(400).json({
       success: false,
-      error: "Email and password are required",
+      error: "Missing required fields",
+      details: missingFields,
     });
   }
+
+  // Validate input
+  if (!email || !password || !planId) {
+    return res.status(400).json({
+      success: false,
+      error: "Email, password and plan selection are required",
+    });
+  }
+
   let userRecord;
   try {
     // Check if user already exists
@@ -81,14 +105,10 @@ const registerUser = asyncHandler(async (req, res) => {
       emailVerified: false,
     });
 
-    // 2. Find the default plan in MongoDB
-    const defaultPlan = await SubscriptionPlan.findOne({
-      name: "Default",
-      isActive: true,
-    });
-
-    if (!defaultPlan) {
-      throw new Error("Default subscription plan not found");
+    // 2. Find the selected plan in MongoDB
+    const selectedPlan = await SubscriptionPlan.findById(planId);
+    if (!selectedPlan) {
+      throw new Error("Selected subscription plan not found");
     }
 
     // 3. Create Paystack customer
@@ -102,55 +122,64 @@ const registerUser = asyncHandler(async (req, res) => {
       },
     });
 
-    // 4. Calculate trial period dates
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30); // 30-day trial
+    // 4. Determine if this is a trial plan
+    const isTrial = selectedPlan.price === 0;
+    let subscriptionData = {};
 
-    // 5. Create user in MongoDB with trial status
+    if (isTrial) {
+      // Trial plan setup
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30); // 30-day trial
+
+      subscriptionData = {
+        planId: selectedPlan._id,
+        status: "trial",
+        startDate: new Date(),
+        endDate: trialEndDate,
+        paystackCustomerCode: paystackCustomer.data.data.customer_code,
+      };
+    } else {
+      // Paid plan - mark as pending payment
+      subscriptionData = {
+        planId: selectedPlan._id,
+        status: "pending_payment",
+        paystackCustomerCode: paystackCustomer.data.data.customer_code,
+      };
+    }
+
+    // 5. Create user in MongoDB
     const user = await User.create({
       firebaseUID: userRecord.uid,
       name,
       email,
       company,
       role: role || "user",
-      terms: true,
+      terms,
       lastLogin: new Date(),
-      trial: {
-        used: false,
-        expiresAt: trialEndDate,
-      },
-      subscription: {
-        planId: defaultPlan._id,
-        status: "trial",
-        startDate: new Date(),
-        endDate: trialEndDate,
-        paystackCustomerCode: paystackCustomer.data.data.customer_code,
-        // No subscription code yet - will be added when trial converts to paid
-        paymentMethodId: null, // Will be set when user adds payment method
-      },
-      //Shall edit to capture the subscription plan well
+      subscription: subscriptionData,
+      isTrial,
     });
 
-    // 6. Send emails (verification and welcome)
+    // 6. Send verification email
     const verificationLink = await admin
       .auth()
       .generateEmailVerificationLink(email);
 
-    await Promise.all([
-      sendEmail(
-        "Welcome to Our Network Design Platform",
-        welcomeEmailTemplate(name),
-        email
-      ),
-      sendEmail(
-        "Verify Your Email Address",
-        `Click <a href="${verificationLink}">here</a> to verify your email.`,
-        email
-      ),
-    ]).catch((err) => console.error("Email sending error:", err));
+    await sendEmail(
+      "Welcome to Network Designer",
+      welcomeEmailTemplate(name, isTrial),
+      email
+    ).catch((err) => console.error("Welcome email error:", err));
+
+    await sendEmail(
+      "Verify Your Email Address",
+      `We want to confirm if you have given us the right
+      Address, Click <a href="${verificationLink}">here</a> to verify your email.`,
+      email
+    ).catch((err) => console.error("Verification email error:", err));
 
     // 7. Return response
-    res.status(201).json({
+    const responseData = {
       success: true,
       data: {
         _id: user.id,
@@ -160,14 +189,17 @@ const registerUser = asyncHandler(async (req, res) => {
         role: user.role,
         terms: user.terms,
         subscription: {
-          plan: defaultPlan.name,
-          status: "trial",
-          trialEnd: trialEndDate,
+          plan: selectedPlan.name,
+          status: isTrial ? "trial" : "pending_payment",
+          ...(isTrial && { trialEnd: subscriptionData.endDate }),
         },
         firebaseToken: await admin.auth().createCustomToken(userRecord.uid),
+        isTrial,
         createdAt: user.createdAt,
       },
-    });
+    };
+
+    res.status(201).json(responseData);
   } catch (error) {
     console.error("Registration error:", error);
 
@@ -183,7 +215,7 @@ const registerUser = asyncHandler(async (req, res) => {
     // Handle specific errors
     const errorMap = {
       "auth/email-already-exists": "Email already in use",
-      "Default subscription plan not found": "System configuration error",
+      "Selected subscription plan not found": "Invalid plan selected",
       "auth/email-already-in-use": "Email already registered",
       "auth/invalid-email": "Invalid email address",
       "auth/weak-password": "Password should be at least 6 characters",
@@ -414,7 +446,7 @@ const handleEmailVerification = asyncHandler(async (req, res) => {
   }
 });
 
-// Update loginUser to send notification on first login
+// Updated loginUser function with proper async handling
 const loginUser = asyncHandler(async (req, res) => {
   const { idToken } = req.body;
 
@@ -429,10 +461,21 @@ const loginUser = asyncHandler(async (req, res) => {
     // Verify the ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const uid = decodedToken.uid;
+    const ipAddress =
+      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const userAgent = req.headers["user-agent"];
+
+    console.log("Starting login process for user:", uid);
+    console.log("Connection details:", {
+      ipAddress,
+      userAgent,
+      time: new Date().toISOString(),
+    });
 
     // Check cache first
     const cacheKey = `user-${uid}`;
     if (userCache.has(cacheKey)) {
+      console.log("Serving from cache for user:", uid);
       const cachedUser = userCache.get(cacheKey);
       return res.json({
         success: true,
@@ -440,34 +483,22 @@ const loginUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Fetch user from MongoDB with optimized query
+    // Fetch user from MongoDB
+    console.log("Fetching user from database for:", uid);
     const user = await User.findOne({ firebaseUID: uid })
       .select("-__v -updatedAt")
       .lean();
 
     if (!user) {
+      console.error("User not found in database for UID:", uid);
       return res.status(404).json({
         success: false,
         error: "User not found",
       });
     }
 
-    // Check if this is first login
     const isFirstLogin = !user.lastLogin;
-
-    // Update last login without waiting
-    User.updateOne({ firebaseUID: uid }, { lastLogin: new Date() })
-      .then(async () => {
-        if (isFirstLogin) {
-          // Send first login notification (non-blocking)
-          await sendEmail(
-            "First Login Notification",
-            `Welcome ${user.name}, we noticed this is your first login to our platform.`,
-            user.email
-          ).catch((err) => console.error("First login email failed:", err));
-        }
-      })
-      .catch((err) => console.error("Login timestamp update failed:", err));
+    const now = new Date();
 
     // Prepare response data
     const userData = {
@@ -486,14 +517,76 @@ const loginUser = asyncHandler(async (req, res) => {
     userCache.set(cacheKey, userData);
     setTimeout(() => userCache.delete(cacheKey), CACHE_TTL);
 
+    // Send response immediately
+    console.log("Sending response for user:", uid);
     res.json({
       success: true,
       data: userData,
     });
-  } catch (error) {
-    console.error("Login error:", error);
 
-    // Handle specific Firebase errors
+    // Start history tracking in background
+    //console.log("Starting background history tracking for:", uid);
+    try {
+      // Check database connection
+      const dbState = mongoose.connection.readyState;
+      console.log("Database connection state:", dbState);
+      if (dbState !== 1) {
+        throw new Error("Database not connected");
+      }
+
+      // Create login history record
+      console.log("Creating login history record...");
+      const loginRecord = new LoginHistory({
+        userId: user._id,
+        ipAddress,
+        userAgent,
+        createdAt: now,
+        updatedAt: now,
+        timestamp: now,
+      });
+
+      const savedRecord = await loginRecord.save();
+      //console.log("LoginHistory saved successfully:", savedRecord._id);
+
+      // Update user document
+      //console.log("Updating user document...");
+      const updateResult = await User.updateOne(
+        { _id: user._id },
+        {
+          $push: { loginHistory: savedRecord._id },
+          $set: {
+            lastLogin: now,
+            ...(isFirstLogin && { isFirstLogin: false }),
+          },
+        }
+      );
+      // Send first login notification if needed
+      if (isFirstLogin) {
+        console.log("Sending first login notification...");
+        await sendEmail(
+          "First Login Notification",
+          `Welcome ${user.name}, we noticed this is your first login to our platform.`,
+          user.email
+        );
+        console.log("First login notification sent");
+      }
+    } catch (err) {
+      console.error("Login history tracking failed:", {
+        error: err.message,
+        stack: err.stack,
+        userId: user._id,
+        ipAddress,
+        userAgent,
+        time: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error("Login error:", {
+      message: error.message,
+      stack: error.stack,
+      time: new Date().toISOString(),
+    });
+
     if (error.code === "auth/id-token-expired") {
       return res.status(401).json({
         success: false,
@@ -506,6 +599,162 @@ const loginUser = asyncHandler(async (req, res) => {
       error: "Authentication failed",
       details: error.message,
     });
+  }
+});
+
+// controllers/userController.js
+/*
+const loginUser = asyncHandler(async (req, res) => {
+  const { idToken } = req.body;
+
+  if (!idToken) {
+    return res.status(400).json({
+      success: false,
+      error: "ID token is required",
+    });
+  }
+
+  try {
+    // Verify the ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const uid = decodedToken.uid;
+    const ipAddress =
+      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const userAgent = req.headers["user-agent"];
+
+    console.log("Starting login process for user:", uid);
+
+    // Check cache first
+    const cacheKey = `user-${uid}`;
+    if (userCache.has(cacheKey)) {
+      console.log("Serving from cache for user:", uid);
+      return res.json({
+        success: true,
+        data: userCache.get(cacheKey),
+      });
+    }
+
+    // Fetch user from MongoDB with minimal fields
+    const user = await User.findOne({ firebaseUID: uid })
+      .select(
+        "_id name email role company subscription trial createdAt lastLogin"
+      )
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    const isFirstLogin = !user.lastLogin;
+    const now = new Date();
+
+    // Prepare response data
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company: user.company,
+      subscription: user.subscription,
+      trial: user.trial,
+      createdAt: user.createdAt,
+      isFirstLogin,
+    };
+
+    // Cache the user data
+    userCache.set(cacheKey, userData);
+    setTimeout(() => userCache.delete(cacheKey), CACHE_TTL);
+
+    // Send response immediately
+    res.json({
+      success: true,
+      data: userData,
+    });
+
+    // Start background tasks after sending response
+    process.nextTick(async () => {
+      try {
+        // Create login history record in parallel with user update
+        await Promise.all([
+          LoginHistory.create({
+            userId: user._id,
+            ipAddress,
+            userAgent,
+            createdAt: now,
+            updatedAt: now,
+          }),
+
+          User.updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                lastLogin: now,
+                ...(isFirstLogin && { isFirstLogin: false }),
+              },
+            }
+          ),
+        ]);
+
+        // Only send email if this is first login
+        if (isFirstLogin) {
+          await sendEmail(
+            "First Login Notification",
+            `Welcome ${user.name}, we noticed this is your first login to our platform.`,
+            user.email
+          );
+        }
+      } catch (err) {
+        console.error("Background login tasks failed:", err.message);
+      }
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    if (error.code === "auth/id-token-expired") {
+      return res.status(401).json({
+        success: false,
+        error: "Session expired, please login again",
+      });
+    }
+
+    res.status(401).json({
+      success: false,
+      error: "Authentication failed",
+      details: error.message,
+    });
+  }
+});
+*/
+
+//Test History:
+const testLoginHistory = asyncHandler(async (req, res) => {
+  try {
+    console.log("TESTING LOGIN HISTORY CREATION");
+
+    // Use your sample user ID
+    const testRecord = new LoginHistory({
+      userId: "67ebec615ef767ef6f0163b6",
+      ipAddress: "127.0.0.1",
+      userAgent: "Chrome",
+    });
+
+    const saved = await testRecord.save();
+    console.log("SAVED RECORD:", saved);
+
+    // Try updating user
+    const update = await User.updateOne(
+      { _id: "67ebfd2f1e8549a0836cad83" },
+      { $push: { loginHistory: saved._id } }
+    );
+    console.log("UPDATE RESULT:", update);
+
+    res.json({ success: true, saved, update });
+  } catch (error) {
+    console.error("TEST ERROR:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -836,4 +1085,5 @@ module.exports = {
   handleEmailVerification,
   forgotPassword,
   resetPassword,
+  testLoginHistory,
 };

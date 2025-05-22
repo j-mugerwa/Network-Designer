@@ -17,6 +17,10 @@ const {
   getPaystackPlans,
   syncPlansNow,
   getActivePlans,
+  initializePayment,
+  verifyPayment,
+  trackPaymentEvent,
+  getPaymentAnalytics,
 } = require("../controllers/subscriptionController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 const {
@@ -28,6 +32,7 @@ const {
 router.post("/webhook", handleWebhook);
 //Non Protected Plans response.
 router.get("/activeplans", getActivePlans);
+router.get("/verify-payment", verifyPayment);
 
 // Protected Routes (require Firebase authentication)
 router.get("/plans", verifyFirebaseToken, getPlans);
@@ -58,6 +63,18 @@ router.get(
   checkSubscription("apiAccess"),
   getSubscriptionAnalytics
 );
+
+router.post(
+  "/initialize-payment",
+  //verifyFirebaseToken, // Keep this optional for new signups
+  initializePayment
+);
+
+// Track payment events (authenticated users only)
+router.post("/track-event", verifyFirebaseToken, trackPaymentEvent);
+
+// Get analytics (admin only)
+router.get("/analytics", verifyFirebaseToken, checkAdmin, getPaymentAnalytics);
 
 // Feature-protected Routes (using subscription middleware)
 router.get(

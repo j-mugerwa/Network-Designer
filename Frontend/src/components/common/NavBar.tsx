@@ -1,24 +1,14 @@
+// src/components/layouts/Navbar.tsx
 import React from "react";
-import { AppBar, Toolbar, Typography, Button } from "@mui/material";
+import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material";
 import { useRouter } from "next/router";
-import { logoutUser } from "@/store/slices/authSlice";
 import { useAppSelector, useAppDispatch } from "@/store/store";
+import ProfileDropdown from "@/components/features/dashboard/ProfileDropdown";
 
 const Navbar: React.FC = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
-
-  const handleLogout = () => {
-    dispatch(logoutUser())
-      .unwrap()
-      .then(() => {
-        router.push("/");
-      })
-      .catch((error) => {
-        console.error("Logout failed:", error);
-      });
-  };
 
   const handleHomeNavigation = () => {
     router.push(isAuthenticated ? "/dashboard" : "/");
@@ -27,7 +17,6 @@ const Navbar: React.FC = () => {
   return (
     <AppBar position="static" sx={{ bgcolor: "primary.main" }}>
       <Toolbar>
-        {/* Left Section: Title - Now clickable */}
         <Typography
           variant="h6"
           sx={{ flexGrow: 1, cursor: "pointer" }}
@@ -36,16 +25,13 @@ const Navbar: React.FC = () => {
           Network Designer
         </Typography>
 
-        {/* Right Section: Login/Logout & Sign Up */}
         {isAuthenticated ? (
-          <>
+          <Box display="flex" alignItems="center">
             <Button color="inherit" onClick={() => router.push("/dashboard")}>
               Dashboard
             </Button>
-            <Button color="inherit" onClick={handleLogout}>
-              Logout
-            </Button>
-          </>
+            <ProfileDropdown />
+          </Box>
         ) : (
           <>
             <Button color="inherit" onClick={() => router.push("/login")}>

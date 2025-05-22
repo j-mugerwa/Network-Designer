@@ -12,6 +12,7 @@ const {
   forgotPassword,
   resetPassword,
   convertTrialToPaid, // Add the new controller import
+  testLoginHistory,
 } = require("../controllers/userController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 const { checkTrialStatus } = require("../middlewares/subscription");
@@ -25,10 +26,19 @@ const convertTrialLimiter = rateLimit({
 
 // Public Routes
 router.post("/register", registerUser);
-router.post("/login", loginUser);
+router.post(
+  "/login",
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 login attempts per windowMs
+  }),
+  loginUser
+);
 router.get("/", userTest);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+// History test route
+router.get("/test-login-history", testLoginHistory);
 
 // Protected Routes
 router.get("/all", verifyFirebaseToken, getAllUsers);

@@ -1,12 +1,13 @@
-import DashboardComponent from "@/components/pages/DashboardLayout";
-import AuthGuard from "@/components/auth/AuthGuard";
+// pages/dashboard.tsx
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import DashboardPage from "@/components/pages/DashboardPage";
 
-function DashboardPage() {
+const Dashboard = () => {
   return (
-    <AuthGuard>
-      <DashboardComponent />
-    </AuthGuard>
+    <DashboardLayout>
+      <DashboardPage />
+    </DashboardLayout>
   );
-}
+};
 
-export default DashboardPage;
+export default Dashboard;

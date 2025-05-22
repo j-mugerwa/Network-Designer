@@ -3,6 +3,9 @@ const User = require("../models/UserModel");
 const axios = require("axios");
 const asyncHandler = require("express-async-handler");
 const { syncPlansFromPaystack } = require("../services/paystackSyncService");
+const Analytics = require("../models/AnalyticsModel");
+const { v4: uuidv4 } = require("uuid");
+const admin = require("../config/firebse");
 
 // Initialize Paystack client
 const paystack = axios.create({
@@ -128,6 +131,307 @@ const cancelSubscription = asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.response?.data?.message || error.message,
+    });
+  }
+});
+
+//Initialize User Payment:
+const initializePayment = asyncHandler(async (req, res) => {
+  const { email, planId } = req.body;
+  const userId = req.user?._id; // For logged-in users upgrading
+
+  try {
+    // Get user and plan details
+    const user = userId
+      ? await User.findById(userId)
+      : await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: "Plan not found",
+      });
+    }
+
+    // Initialize payment with Paystack
+    const paymentResponse = await paystack.post("/transaction/initialize", {
+      email: user.email,
+      amount: plan.price * 100, // Paystack uses kobo
+      plan: plan.paystackPlanCode,
+      metadata: {
+        userId: user._id,
+        planId: plan._id,
+        action: userId ? "plan_upgrade" : "new_subscription",
+      },
+      callback_url: `${process.env.FRONTEND_URL}/payment-callback`,
+    });
+
+    // For new signups, update user to pending payment status
+    if (!userId) {
+      await User.findByIdAndUpdate(user._id, {
+        "subscription.status": "pending_payment",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        authorization_url: paymentResponse.data.data.authorization_url,
+        reference: paymentResponse.data.data.reference,
+      },
+    });
+  } catch (error) {
+    console.error("Payment initialization error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message,
+    });
+  }
+});
+
+//Verify a payment:
+/*
+const verifyPayment = asyncHandler(async (req, res) => {
+  const { reference } = req.query;
+
+  try {
+    // Verify with Paystack
+    const verification = await paystack.get(`/transaction/verify/${reference}`);
+
+    if (verification.data.data.status !== "success") {
+      return res.status(400).json({
+        success: false,
+        error: "Payment not successful",
+      });
+    }
+
+    const metadata = verification.data.data.metadata;
+    const userId = metadata.userId;
+    const planId = metadata.planId;
+
+    // Update user subscription
+    await User.findByIdAndUpdate(userId, {
+      subscription: {
+        planId,
+        status: "active",
+        startDate: new Date(),
+        // Add other subscription details
+      },
+    });
+
+    res.json({
+      success: true,
+      data: verification.data.data,
+    });
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message,
+    });
+  }
+});
+*/
+
+const verifyPayment = asyncHandler(async (req, res) => {
+  const { reference } = req.query;
+
+  try {
+    // Verify with Paystack
+    const verification = await paystack.get(`/transaction/verify/${reference}`);
+
+    if (verification.data.data.status !== "success") {
+      return res.status(400).json({
+        success: false,
+        error: "Payment not successful",
+      });
+    }
+
+    const metadata = verification.data.data.metadata;
+    const userId = metadata.userId;
+    const planId = metadata.planId;
+
+    // Update user subscription
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        subscription: {
+          planId,
+          status: "active",
+          startDate: new Date(),
+          // Add other subscription details
+        },
+      },
+      { new: true }
+    );
+
+    // Generate new token
+    const token = await admin.auth().createCustomToken(user.firebaseUID);
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          uid: user.firebaseUID,
+          email: user.email,
+          displayName: user.name,
+          token,
+        },
+        token,
+        subscription: user.subscription,
+      },
+    });
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message,
+    });
+  }
+});
+
+//Track Payment
+const trackPaymentEvent = asyncHandler(async (req, res) => {
+  const { event, payload } = req.body;
+
+  // Validate required fields
+  if (!event || typeof event !== "string") {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid event type",
+      code: "INVALID_EVENT_TYPE",
+    });
+  }
+
+  // Validate payload structure
+  if (!payload || typeof payload !== "object") {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid payload format",
+      code: "INVALID_PAYLOAD",
+    });
+  }
+
+  try {
+    // Create base analytics record
+    const analyticsRecord = new Analytics({
+      event,
+      payload,
+      userAgent: req.headers["user-agent"],
+      ipAddress: req.ip || req.connection.remoteAddress,
+      metadata: {
+        httpMethod: req.method,
+        path: req.path,
+        referrer: req.headers.referer || null,
+      },
+    });
+
+    // Add authenticated user if available
+    if (req.user?._id) {
+      analyticsRecord.userId = req.user._id;
+      analyticsRecord.payload.userId = req.user._id;
+    }
+
+    // Add session ID if not provided
+    if (!analyticsRecord.payload.sessionId) {
+      analyticsRecord.payload.sessionId = uuidv4();
+    }
+
+    // Save to database
+    await analyticsRecord.save();
+
+    // Log to console in development
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Analytics]", {
+        event,
+        userId: analyticsRecord.userId,
+        sessionId: analyticsRecord.payload.sessionId,
+        timestamp: analyticsRecord.createdAt,
+      });
+    }
+
+    // Return success response
+    res.json({
+      success: true,
+      data: {
+        event,
+        sessionId: analyticsRecord.payload.sessionId,
+        timestamp: analyticsRecord.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Analytics tracking error:", error);
+
+    // Return structured error response
+    res.status(500).json({
+      success: false,
+      error: "Failed to track analytics event",
+      code: "TRACKING_FAILED",
+      systemError:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// Get analytics summary
+const getPaymentAnalytics = asyncHandler(async (req, res) => {
+  try {
+    const { startDate, endDate, eventType } = req.query;
+
+    // Basic date validation
+    const start = startDate
+      ? new Date(startDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default: 30 days
+    const end = endDate ? new Date(endDate) : new Date();
+
+    // Build query
+    const query = {
+      createdAt: { $gte: start, $lte: end },
+    };
+
+    if (eventType) {
+      query.event = eventType;
+    }
+
+    // Get analytics data
+    const analytics = await Analytics.find(query)
+      .sort({ createdAt: -1 })
+      .limit(1000) // Protect against huge datasets
+      .lean();
+
+    // Get summary stats
+    const stats = await Analytics.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$event",
+          count: { $sum: 1 },
+          lastOccurrence: { $max: "$createdAt" },
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        summary: stats,
+        recentEvents: analytics,
+      },
+    });
+  } catch (error) {
+    console.error("Analytics fetch error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch analytics data",
+      code: "FETCH_FAILED",
     });
   }
 });
@@ -916,4 +1220,8 @@ module.exports = {
   getPaystackPlans,
   syncPlansNow,
   getActivePlans,
+  initializePayment,
+  verifyPayment,
+  trackPaymentEvent,
+  getPaymentAnalytics,
 };

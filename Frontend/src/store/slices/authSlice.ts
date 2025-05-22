@@ -6,12 +6,15 @@ import {
   User,
   UserCredential,
 } from "firebase/auth";
-import axios from "axios";
+import axios from "@/lib/api/client";
+//import axios from "axios";
+import apiClient from "@/lib/api/client";
 
-// Helper function to safely access localStorage
+// Update the getLocalStorageItem helper function
 const getLocalStorageItem = (key: string) => {
   if (typeof window !== "undefined") {
-    return localStorage.getItem(key);
+    const item = localStorage.getItem(key);
+    return item === "undefined" ? null : item; // Handle 'undefined' string case
   }
   return null;
 };
@@ -32,11 +35,11 @@ interface AuthState {
   token: string | null;
 }
 
-// Initial state with type
+// Update the initial state
 const initialState: AuthState = {
   user:
     typeof window !== "undefined"
-      ? JSON.parse(getLocalStorageItem("user") || "null")
+      ? JSON.parse(getLocalStorageItem("user") || "null") // Now safe from 'undefined' strings
       : null,
   isAuthenticated:
     typeof window !== "undefined" ? !!getLocalStorageItem("user") : false,
@@ -55,22 +58,24 @@ export const registerUser = createAsyncThunk<
     role: string;
     password: string;
     terms: boolean;
+    planId: string;
   },
   { rejectValue: string }
 >(
   "auth/registerUser",
-  async ({ email, password, name, company, role, terms }, thunkAPI) => {
+  async ({ email, password, name, company, role, terms, planId }, thunkAPI) => {
     try {
       const response = await axios.post<{
         user: AuthUser;
         token: string;
-      }>("/api/users/register", {
+      }>("/users/register", {
         name,
         email,
         company,
         role,
         password,
-        terms, // Add terms to the request
+        terms,
+        planId,
       });
 
       if (typeof window !== "undefined") {
@@ -93,32 +98,105 @@ export const loginUser = createAsyncThunk<
   { rejectValue: string }
 >("auth/loginUser", async ({ email, password }, thunkAPI) => {
   try {
-    const userCredential: UserCredential = await signInWithEmailAndPassword(
+    // 1. First authenticate with Firebase
+    const userCredential = await signInWithEmailAndPassword(
       auth,
       email,
       password
     );
 
-    const user = userCredential.user;
-    const token = await user.getIdToken();
+    // 2. Get the ID token
+    const idToken = await userCredential.user.getIdToken();
 
-    const userData: AuthUser = {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      token,
+    // 3. Call your backend login endpoint
+    const response = await axios.post("/users/login", { idToken });
+
+    // 4. Store the user data
+    const userData = {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+      displayName: userCredential.user.displayName,
+      token: idToken,
+      ...response.data.user, // Include any additional user data from your backend
     };
 
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("token", token);
+      localStorage.setItem("token", idToken);
     }
 
-    return { ...userData, token };
+    return userData;
   } catch (error: any) {
     return thunkAPI.rejectWithValue(error.message || "Login failed");
   }
 });
+
+//Optimized Login
+/*
+export const loginUser = createAsyncThunk<
+  AuthUser & { token: string },
+  { email: string; password: string },
+  { rejectValue: string }
+>("auth/loginUser", async ({ email, password }, thunkAPI) => {
+  try {
+    // Start timing the login process
+    const startTime = Date.now();
+
+    // 1. Authenticate with Firebase
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    const firebaseTime = Date.now();
+    console.log(`Firebase auth completed in ${firebaseTime - startTime}ms`);
+
+    // 2. Get ID token
+    const idToken = await userCredential.user.getIdToken();
+    const tokenTime = Date.now();
+    console.log(`Token retrieval completed in ${tokenTime - firebaseTime}ms`);
+
+    // 3. Call backend login endpoint with timeout
+    const source = axios.CancelToken.source();
+    const timeout = setTimeout(() => source.cancel("Login timeout"), 10000); // 10 second timeout
+
+    const response = await apiClient.post(
+      "/users/login",
+      { idToken },
+      {
+        cancelToken: source.token,
+      }
+    );
+    clearTimeout(timeout);
+
+    const backendTime = Date.now();
+    console.log(`Backend login completed in ${backendTime - tokenTime}ms`);
+
+    // 4. Prepare user data
+    const userData = {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+      displayName: userCredential.user.displayName,
+      token: idToken,
+      ...response.data.user,
+    };
+
+    // 5. Store in localStorage if available
+    if (typeof window !== "undefined") {
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", idToken);
+    }
+
+    console.log(`Total login time: ${Date.now() - startTime}ms`);
+    return userData;
+  } catch (error: any) {
+    if (axios.isCancel(error)) {
+      return thunkAPI.rejectWithValue("Login timed out");
+    }
+    return thunkAPI.rejectWithValue(error.message || "Login failed");
+  }
+});
+*/
 
 export const logoutUser = createAsyncThunk<void, void, { rejectValue: string }>(
   "auth/logoutUser",
@@ -183,6 +261,11 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = null;
       state.token = null;
+    },
+    setUser: (state, action: PayloadAction<AuthUser>) => {
+      state.user = action.payload;
+      state.isAuthenticated = true;
+      state.token = action.payload.token;
     },
   },
   extraReducers: (builder) => {
@@ -252,5 +335,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { resetAuthState } = authSlice.actions;
+export const { resetAuthState, setUser } = authSlice.actions;
 export default authSlice.reducer;

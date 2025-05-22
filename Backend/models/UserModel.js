@@ -1,3 +1,4 @@
+const { boolean } = require("joi");
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
@@ -22,7 +23,15 @@ const userSchema = new mongoose.Schema(
       },
       status: {
         type: String,
-        enum: ["trial", "active", "canceled", "expired", "past_due", "paused"],
+        enum: [
+          "trial",
+          "active",
+          "canceled",
+          "expired",
+          "past_due",
+          "paused",
+          "pending_payment",
+        ],
         default: "trial",
       },
       startDate: {
@@ -74,9 +83,6 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "network-admin", "user"],
       default: "admin",
     },
-    lastLogin: {
-      type: Date,
-    },
     passwordResetToken: {
       type: String,
     },
@@ -98,7 +104,24 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isFirstLogin: {
+      type: Boolean,
+      default: false,
+    },
+    loginHistory: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "LoginHistory",
+      },
+    ],
+    lastLogin: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
+
+//userSchema.index({ firebaseUID: 1 }, { unique: true });
+//userSchema.index({ email: 1 }, { unique: true });
+
 module.exports = mongoose.model("User", userSchema);

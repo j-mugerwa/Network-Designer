@@ -17,6 +17,7 @@
     "cloudinary": "^2.6.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "deep-diff": "^1.0.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -40,7 +41,8 @@
     "os": "^0.1.2",
     "path": "^0.12.7",
     "pdfkit": "^0.16.0",
-    "puppeteer": "^24.6.1"
+    "puppeteer": "^24.6.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

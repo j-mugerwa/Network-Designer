@@ -31,6 +31,9 @@ const collaborationRoutes = require("./routes/collaborationRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const statsRoutes = require("./routes/statsRoutes");
+const invitationRoutes = require("./routes/invitationRoutes");
+const loginHistoryRoutes = require("./routes/loginHistoryRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 // Initialize Express app
 const app = express();
 
@@ -76,6 +79,9 @@ app.use("/api/collaboration", collaborationRoutes);
 app.use("/api/team", teamRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/invites", invitationRoutes);
+app.use("/api/loginhistory", loginHistoryRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");

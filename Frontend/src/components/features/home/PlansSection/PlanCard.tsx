@@ -70,9 +70,9 @@ export const PlanCard: FC<PlanCardProps> = ({ plan }) => {
           variant="h4"
           color="primary"
           gutterBottom
-          sx={{ fontWeight: 800 }}
+          sx={{ fontWeight: 650 }}
         >
-          ${plan.price}
+          ₦{plan.price}
           <Typography
             component="span"
             color="text.secondary"
