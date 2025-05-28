@@ -1,59 +1,68 @@
+// src/store/store.ts
 import { configureStore } from "@reduxjs/toolkit";
-import { persistStore, persistReducer } from "redux-persist";
-import storage from "redux-persist/lib/storage"; // Changed import syntax
+import {
+  persistStore,
+  persistReducer,
+  FLUSH,
+  REHYDRATE,
+  PAUSE,
+  PERSIST,
+  PURGE,
+  REGISTER,
+} from "redux-persist";
+import createWebStorage from "redux-persist/lib/storage/createWebStorage";
+import { combineReducers } from "redux";
 import authReducer from "@/store/slices/authSlice";
 import userReducer from "@/store/slices/userSlice";
 import statsReducer from "@/store/slices/statsSlice";
 import subscriptionReducer from "@/store/slices/subscriptionSlice";
-import { useDispatch, useSelector, TypedUseSelectorHook } from "react-redux";
 import dashboardReducer from "@/store/slices/dashboardSlice";
+import designReducer from "@/store/slices/networkDesignSlice";
+import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 
-// Improved storage initialization for Next.js SSR compatibility
-const createNoopStorage = () => ({
-  getItem(_key: string) {
-    return Promise.resolve(null);
-  },
-  setItem(_key: string, value: any) {
-    return Promise.resolve(value);
-  },
-  removeItem(_key: string) {
-    return Promise.resolve();
-  },
-});
+// Create a no-op storage for server-side
+const createNoopStorage = () => {
+  return {
+    getItem(_key: string) {
+      return Promise.resolve(null);
+    },
+    setItem(_key: string, value: any) {
+      return Promise.resolve(value);
+    },
+    removeItem(_key: string) {
+      return Promise.resolve();
+    },
+  };
+};
 
-const isClient = typeof window !== "undefined";
-
-// Use the imported storage directly
-const persistStorage = isClient ? storage : createNoopStorage();
+const storage =
+  typeof window !== "undefined"
+    ? createWebStorage("local")
+    : createNoopStorage();
 
 // Persist configuration for auth slice
 const authPersistConfig = {
   key: "auth",
-  storage: persistStorage,
+  storage,
   whitelist: ["token", "isAuthenticated", "user"],
 };
 
-// Create persisted reducer
-const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
+// Combine reducers
+const rootReducer = combineReducers({
+  auth: persistReducer(authPersistConfig, authReducer),
+  user: userReducer,
+  stats: statsReducer,
+  subscriptions: subscriptionReducer,
+  dashboard: dashboardReducer,
+  designs: designReducer,
+});
 
 export const store = configureStore({
-  reducer: {
-    auth: persistedAuthReducer,
-    user: userReducer,
-    stats: statsReducer,
-    subscriptions: subscriptionReducer,
-    dashboard: dashboardReducer,
-  },
+  reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: [
-          "persist/PERSIST",
-          "persist/REHYDRATE",
-          "persist/PAUSE",
-          "persist/PURGE",
-          "persist/REGISTER",
-        ],
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
   devTools: process.env.NODE_ENV !== "production",
@@ -61,7 +70,10 @@ export const store = configureStore({
 
 export const persistor = persistStore(store);
 
+// Type definitions
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
+
+// Typed hooks
 export const useAppDispatch: () => AppDispatch = useDispatch;
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;

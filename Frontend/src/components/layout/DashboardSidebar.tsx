@@ -1,5 +1,6 @@
 // src/components/layouts/DashboardSidebar.tsx
 import { useState } from "react";
+import { useRouter } from "next/router";
 import {
   Drawer,
   List,
@@ -26,12 +27,12 @@ import {
   ChevronRight,
   ExpandLess,
   ExpandMore,
-  Assessment,
 } from "@mui/icons-material";
 
 const drawerWidth = 240;
 
 const DashboardSidebar = () => {
+  const router = useRouter();
   const [open, setOpen] = useState(true);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     designs: false,
@@ -52,6 +53,10 @@ const DashboardSidebar = () => {
     setOpenMenus((prev) => ({ ...prev, [menu]: !prev[menu] }));
   };
 
+  const handleNavigation = (path: string) => {
+    router.push(path);
+  };
+
   const menuItems = [
     {
       name: "Dashboard",
@@ -62,7 +67,7 @@ const DashboardSidebar = () => {
       name: "Designs",
       icon: <DesignIcon />,
       subItems: [
-        { name: "Create Design", path: "/designs/create" },
+        { name: "Create Design", path: "/designs/new" },
         { name: "Optimize Design", path: "/designs/optimize" },
         { name: "Show Designs", path: "/designs" },
         { name: "Visualize Design", path: "/designs/visualize" },
@@ -140,6 +145,7 @@ const DashboardSidebar = () => {
           width: open ? drawerWidth : 56,
           boxSizing: "border-box",
           transition: "width 0.3s ease",
+          overflowX: "hidden",
         },
       }}
     >
@@ -158,7 +164,14 @@ const DashboardSidebar = () => {
                   item.subItems
                     ? () =>
                         toggleMenu(item.name.toLowerCase().replace(" ", "_"))
-                    : () => {}
+                    : () => item.path && handleNavigation(item.path)
+                }
+                selected={
+                  item.path === router.pathname ||
+                  (item.subItems &&
+                    item.subItems.some(
+                      (subItem) => subItem.path === router.pathname
+                    ))
                 }
               >
                 <ListItemIcon sx={{ minWidth: open ? 40 : "auto" }}>
@@ -187,9 +200,8 @@ const DashboardSidebar = () => {
                     <ListItemButton
                       key={subItem.name}
                       sx={{ pl: open ? 4 : 2 }}
-                      onClick={() => {
-                        /* Handle navigation */
-                      }}
+                      onClick={() => handleNavigation(subItem.path)}
+                      selected={subItem.path === router.pathname}
                     >
                       {open && <ListItemText primary={subItem.name} />}
                     </ListItemButton>
