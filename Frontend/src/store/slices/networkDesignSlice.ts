@@ -37,6 +37,7 @@ const initialState: DesignState = {
 };
 
 // Utility function to convert NetworkDesign to NetworkDesignUI
+/*
 const convertToUI = (design: NetworkDesign): NetworkDesignUI => {
   // Parse dates if they're strings
   const parseDate = (dateString: string | Date) => {
@@ -69,8 +70,43 @@ const convertToUI = (design: NetworkDesign): NetworkDesignUI => {
       : undefined,
   };
 };
+*/
+
+const convertToUI = (design: NetworkDesign): NetworkDesignUI => {
+  // Parse dates if they're strings
+  const parseDate = (dateString: string | Date) => {
+    return typeof dateString === "string"
+      ? new Date(dateString).toISOString()
+      : dateString.toISOString();
+  };
+
+  return {
+    id: design._id?.toString() || "",
+    userId: design.userId.toString(),
+    designName: design.designName,
+    description: design.description,
+    isExistingNetwork: design.isExistingNetwork,
+    existingNetworkDetails: design.existingNetworkDetails,
+    requirements: design.requirements,
+    designStatus: design.designStatus,
+    version: design.version,
+    isTemplate: design.isTemplate,
+    deviceCount: design.deviceCount || 0,
+    reportCount: design.reports?.length || 0,
+    createdAt: design.createdAt
+      ? parseDate(design.createdAt)
+      : new Date().toISOString(),
+    updatedAt: design.updatedAt
+      ? parseDate(design.updatedAt)
+      : new Date().toISOString(),
+    lastModified: design.lastModified
+      ? parseDate(design.lastModified)
+      : undefined,
+  };
+};
 
 // Thunks
+/*
 export const createDesign = createAsyncThunk<
   NetworkDesignUI,
   CreateDesignPayload,
@@ -82,6 +118,26 @@ export const createDesign = createAsyncThunk<
       designData
     );
     return response.data.design;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to create design"
+    );
+  }
+});
+*/
+
+export const createDesign = createAsyncThunk<
+  NetworkDesignUI,
+  CreateDesignPayload,
+  { rejectValue: string }
+>("designs/create", async (designData, { rejectWithValue }) => {
+  try {
+    const response = await axios.post<DesignCreationResponse>(
+      "/networkdesign",
+      designData
+    );
+    const design = response.data.design;
+    return "_id" in design ? convertToUI(design) : design;
   } catch (error: any) {
     return rejectWithValue(
       error.response?.data?.error || "Failed to create design"
@@ -144,6 +200,7 @@ export const fetchDesignById = createAsyncThunk<
   }
 });
 
+/*
 export const updateDesign = createAsyncThunk<
   NetworkDesignUI,
   { id: string; designData: UpdateDesignPayload },
@@ -154,7 +211,39 @@ export const updateDesign = createAsyncThunk<
       `/networkdesign/${id}`,
       designData
     );
-    return response.data.design;
+
+    // Handle both NetworkDesign and NetworkDesignUI responses
+    const design = response.data.design;
+    const convertedDesign = "_id" in design ? convertToUI(design) : design;
+
+    return {
+      ...convertedDesign,
+      id: id, // Ensure we always have the correct ID
+    };
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to update design"
+    );
+  }
+});
+*/
+
+export const updateDesign = createAsyncThunk<
+  NetworkDesignUI,
+  { id: string; designData: UpdateDesignPayload },
+  { rejectValue: string }
+>("designs/update", async ({ id, designData }, { rejectWithValue }) => {
+  try {
+    const response = await axios.put<DesignCreationResponse>(
+      `/networkdesign/${id}`,
+      designData
+    );
+    const design = response.data.design;
+    // Ensure we return a properly formatted NetworkDesignUI
+    return {
+      ...("_id" in design ? convertToUI(design) : design),
+      id: id, // Explicitly set the id
+    };
   } catch (error: any) {
     return rejectWithValue(
       error.response?.data?.error || "Failed to update design"
@@ -239,12 +328,25 @@ const designSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
+      /*
       .addCase(updateDesign.fulfilled, (state, action) => {
         state.loading = false;
         state.currentDesign = action.payload;
         state.designs = state.designs.map((design) =>
           design.id === action.payload.id ? action.payload : design
         );
+      })
+        */
+      .addCase(updateDesign.fulfilled, (state, action) => {
+        state.loading = false;
+        if (action.payload) {
+          state.currentDesign = action.payload;
+          if (action.payload.id) {
+            state.designs = state.designs.map((design) =>
+              design.id === action.payload.id ? action.payload : design
+            );
+          }
+        }
       })
       .addCase(updateDesign.rejected, (state, action) => {
         state.loading = false;

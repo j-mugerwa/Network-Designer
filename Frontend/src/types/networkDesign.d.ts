@@ -122,6 +122,20 @@ export interface NetworkDesignUI {
   lastModified?: string;
 }
 
+// NetworkDesignUI extends the Payload.
+export interface NetworkDesignUI extends CreateDesignPayload {
+  id: string;
+  userId: string;
+  designStatus: DesignStatus;
+  version: number;
+  isTemplate: boolean;
+  deviceCount: number;
+  reportCount: number;
+  createdAt: string;
+  updatedAt: string;
+  lastModified?: string;
+}
+
 // For design creation payload
 export interface CreateDesignPayload {
   designName: string;
@@ -150,7 +164,9 @@ export interface ApiResponse<T> {
 
 //Design Creation Response.
 export interface DesignCreationResponse {
-  design: NetworkDesignUI;
+  design: NetworkDesign | NetworkDesignUI;
+  //design: NetworkDesign;
+  message?: string;
   limits: {
     current: number;
     limit: number;
