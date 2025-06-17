@@ -18,6 +18,7 @@ import statsReducer from "@/store/slices/statsSlice";
 import subscriptionReducer from "@/store/slices/subscriptionSlice";
 import dashboardReducer from "@/store/slices/dashboardSlice";
 import designReducer from "@/store/slices/networkDesignSlice";
+import topologyReducer from "@/store/slices/networkTopologySlice";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 
 // Create a no-op storage for server-side
@@ -55,6 +56,7 @@ const rootReducer = combineReducers({
   subscriptions: subscriptionReducer,
   dashboard: dashboardReducer,
   designs: designReducer,
+  topology: topologyReducer,
 });
 
 export const store = configureStore({

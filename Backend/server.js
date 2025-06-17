@@ -34,6 +34,7 @@ const statsRoutes = require("./routes/statsRoutes");
 const invitationRoutes = require("./routes/invitationRoutes");
 const loginHistoryRoutes = require("./routes/loginHistoryRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const visualizationRoutes = require("./routes/visualizationRoutes");
 // Initialize Express app
 const app = express();
 
@@ -82,6 +83,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/invites", invitationRoutes);
 app.use("/api/loginhistory", loginHistoryRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/topology", visualizationRoutes);
 
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");

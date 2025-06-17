@@ -39,7 +39,7 @@ const topologySchema = new mongoose.Schema({
       level: {
         type: Number,
         min: 1,
-        max: 3,
+        max: 4,
         default: 1,
       },
       subnet: String,

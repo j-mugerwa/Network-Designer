@@ -6,6 +6,7 @@ const IPCalculator = require("../services/ipCalculator");
 // @desc    Generate network topology
 // @route   POST /api/topology/:designId
 // @access  Private
+/*
 const generateTopology = asyncHandler(async (req, res) => {
   try {
     const design = await NetworkDesign.findOne({
@@ -47,6 +48,58 @@ const generateTopology = asyncHandler(async (req, res) => {
     });
   }
 });
+*/
+
+const generateTopology = asyncHandler(async (req, res) => {
+  try {
+    console.log("Generating topology for design:", req.params.designId);
+    const design = await NetworkDesign.findOne({
+      _id: req.params.designId,
+      userId: req.user._id,
+    }).populate("devices");
+
+    if (!design) {
+      console.log("Design not found");
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or access denied",
+      });
+    }
+
+    console.log("Design found:", design.designName);
+
+    // Generate nodes and edges
+    const nodes = generateNodes(design);
+    console.log("Generated nodes:", nodes.length);
+
+    const edges = generateEdges(design, nodes);
+    console.log("Generated edges:", edges.length);
+
+    const topology = new NetworkTopology({
+      designId: design._id,
+      userId: req.user._id,
+      nodes,
+      edges,
+    });
+
+    await topology.save();
+    console.log("Topology saved successfully");
+
+    res.json({
+      success: true,
+      data: topology,
+      visualizationUrl: `/api/visualization/${topology._id}`,
+    });
+  } catch (error) {
+    console.error("Topology generation error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate topology",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
 
 // @desc    Get topology for a design
 // @route   GET /api/topology/:designId
@@ -78,9 +131,25 @@ const getTopology = asyncHandler(async (req, res) => {
 });
 
 // Helper functions
+/*
 function generateNodes(design) {
   const nodes = [];
   let nodeId = 1;
+
+  // Always create core router if not exists
+
+  nodes.push({
+    id: `R${nodeId++}`,
+    label: "Core Router",
+    type: "router",
+    level: 1,
+    model:
+      design.devices.find((d) => d?.type === "router")?.model || "ISR 4000",
+    interfaces: [
+      { name: "Gig0/0", ip: "", connectedTo: "" },
+      { name: "Gig0/1", ip: "", connectedTo: "" },
+    ],
+  });
 
   // Core layer devices
   if (design.requirements.routers) {
@@ -183,11 +252,127 @@ function generateNodes(design) {
 
   return nodes;
 }
+  */
+
+function generateNodes(design) {
+  const nodes = [];
+  let nodeId = 1;
+
+  // Core Router (always created)
+  nodes.push({
+    id: `R${nodeId++}`,
+    label: "Core Router",
+    type: "router",
+    level: 1, // Core level
+    model:
+      design.devices.find((d) => d?.type === "router")?.model || "ISR 4000",
+    interfaces: [
+      { name: "Gig0/0", ip: "", connectedTo: "" },
+      { name: "Gig0/1", ip: "", connectedTo: "" },
+    ],
+  });
+
+  // Firewall (if needed)
+  if (design.requirements.securityRequirements?.firewall) {
+    nodes.push({
+      id: `FW${nodeId++}`,
+      label: "Firewall",
+      type: "firewall",
+      level: 1, // Same level as core router
+      model:
+        design.devices.find((d) => d?.type === "firewall")?.model || "ASA 5500",
+    });
+  }
+
+  // Distribution switches
+  const distributionSwitches = design.requirements.networkSegmentation
+    ? design.requirements.segments.length
+    : 1;
+
+  for (let i = 0; i < distributionSwitches; i++) {
+    nodes.push({
+      id: `DSW${nodeId++}`,
+      label: `Dist Switch ${i + 1}`,
+      type: "switch",
+      level: 2, // Distribution level
+      vlan: design.requirements.networkSegmentation
+        ? design.requirements.segments[i]?.vlanId
+        : null,
+      model:
+        design.devices.find((d) => d?.type === "switch")?.model ||
+        "Catalyst 9200",
+    });
+  }
+
+  // Access switches
+  const accessSwitches = Math.ceil(design.requirements.wiredUsers / 24);
+  for (let i = 0; i < accessSwitches; i++) {
+    nodes.push({
+      id: `ASW${nodeId++}`,
+      label: `Access Switch ${i + 1}`,
+      type: "switch",
+      level: 3, // Access level
+      model:
+        design.devices.find((d) => d?.type === "switch")?.model ||
+        "Catalyst 2960",
+    });
+  }
+
+  // Wireless APs
+  const aps = Math.ceil(design.requirements.wirelessUsers / 30);
+  for (let i = 0; i < aps; i++) {
+    nodes.push({
+      id: `AP${nodeId++}`,
+      label: `AP ${i + 1}`,
+      type: "wireless-ap",
+      level: 3, // Same level as access switches
+      model:
+        design.devices.find((d) => d?.type === "access-point")?.model ||
+        "AIR-CAP2702",
+    });
+  }
+
+  // User groups (changed from level 4 to 3)
+  nodes.push({
+    id: `UG${nodeId++}`,
+    label: `Wired Users (${design.requirements.wiredUsers})`,
+    type: "user-group",
+    level: 3, // Changed from 4 to match access level
+  });
+
+  nodes.push({
+    id: `UG${nodeId++}`,
+    label: `Wireless Users (${design.requirements.wirelessUsers})`,
+    type: "user-group",
+    level: 3, // Changed from 4 to match access level
+  });
+
+  // Internet (changed from level 0 to 1)
+  nodes.push({
+    id: `WAN${nodeId++}`,
+    label: "Internet",
+    type: "internet",
+    level: 1, // Changed from 0 to match core level
+  });
+
+  return nodes;
+}
 
 function generateEdges(design, nodes) {
   const edges = [];
-  const coreRouter = nodes.find((n) => n.type === "router");
+  const coreRouter = nodes.find((n) => n.type === "router" && n.level === 1);
+  const internet = nodes.find((n) => n.type === "internet" && n.level === 1);
+  //const coreRouter = nodes.find((n) => n.type === "router");
   const firewall = nodes.find((n) => n.type === "firewall");
+  //const internet = nodes.find((n) => n.type === "internet");
+
+  if (!coreRouter) {
+    throw new Error("Core router node not found in generated nodes");
+  }
+  if (!internet) {
+    throw new Error("Internet node not found in generated nodes");
+  }
+
   const distSwitches = nodes.filter(
     (n) => n.type === "switch" && n.level === 2
   );
@@ -196,7 +381,7 @@ function generateEdges(design, nodes) {
   );
   const aps = nodes.filter((n) => n.type === "wireless-ap");
   const userGroups = nodes.filter((n) => n.type === "user-group");
-  const internet = nodes.find((n) => n.type === "internet");
+  //const internet = nodes.find((n) => n.type === "internet");
 
   // Connect internet to firewall or router
   if (firewall) {

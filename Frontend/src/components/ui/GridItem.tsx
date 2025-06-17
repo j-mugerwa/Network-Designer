@@ -1,12 +1,12 @@
-import { Grid, GridProps } from "@mui/material";
+// components/layout/GridItem.tsx
+import { Box, SxProps, Theme } from "@mui/material";
 import React from "react";
 
-interface GridItemProps extends Omit<GridProps, "container"> {
+interface GridItemProps {
   children: React.ReactNode;
+  sx?: SxProps<Theme>;
 }
 
-export const GridItem: React.FC<GridItemProps> = ({ children, ...props }) => (
-  <Grid item {...props}>
-    {children}
-  </Grid>
+export const GridItem: React.FC<GridItemProps> = ({ children, sx = {} }) => (
+  <Box sx={{ display: "flex", ...sx }}>{children}</Box>
 );
