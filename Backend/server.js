@@ -85,6 +85,8 @@ app.use("/api/loginhistory", loginHistoryRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/topology", visualizationRoutes);
 
+//Serve Static files:
+app.use("/report", express.static(path.join(__dirname, "reports")));
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
 const certificate = fs.readFileSync("./certs/cert.crt", "utf8");
