@@ -7,112 +7,11 @@ const Report = require("../models/ReportModel");
 const Notification = require("../models/NotificationModel");
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
+const NetworkTopology = require("../models/NetworkTopologyModel");
 
 // @desc    Get dashboard statistics and activity
 // @route   GET /api/dashboard
 // @access  Private
-/*
-const getDashboardData = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  try {
-    // Convert userId to ObjectId once
-    const userIdObj = new mongoose.Types.ObjectId(userId);
-
-    // Fetch all stats in parallel
-    const [
-      designsCount,
-      optimizedDesignsCount,
-      visualizedDesignsCount,
-      teamsCount,
-      invitations,
-      recentDesigns,
-      recentReports,
-      recentNotifications,
-      activityData,
-    ] = await Promise.all([
-      // Basic counts
-      Design.countDocuments({ userId: userIdObj }),
-      Design.countDocuments({ userId: userIdObj, optimized: true }),
-      Design.countDocuments({ userId: userIdObj, visualized: true }),
-      Team.countDocuments({ owner: userIdObj }),
-
-      // Invitations breakdown
-      Invitation.aggregate([
-        { $match: { invitedBy: userIdObj } },
-        {
-          $group: {
-            _id: "$status",
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-
-      // Recent items (last 5)
-      Design.find({ userId: userIdObj })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select("name createdAt"),
-
-      Report.find({ userId: userIdObj })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select("name createdAt"),
-
-      Notification.find({ recipient: userIdObj })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select("title createdAt"),
-
-      // Activity data for chart
-      generateActivityData(userIdObj), // Pass the ObjectId directly
-    ]);
-
-    // Transform invitations data
-    const invitationStats = {
-      total: 0,
-      accepted: 0,
-      pending: 0,
-      declined: 0,
-    };
-
-    invitations.forEach(({ _id, count }) => {
-      invitationStats.total += count;
-      invitationStats[_id] = count;
-    });
-
-    res.json({
-      success: true,
-      data: {
-        stats: {
-          designsCreated: designsCount,
-          designsOptimized: optimizedDesignsCount,
-          designsVisualized: visualizedDesignsCount,
-          teamsCreated: teamsCount,
-          individualsInvited: invitationStats.total,
-          invitationsAccepted: invitationStats.accepted,
-          invitationsPending: invitationStats.pending,
-          invitationsDeclined: invitationStats.declined,
-        },
-        recentItems: {
-          designs: recentDesigns,
-          reports: recentReports,
-          notifications: recentNotifications,
-        },
-        activityData,
-      },
-    });
-  } catch (error) {
-    console.error("Dashboard data fetch error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch dashboard data",
-    });
-  }
-});
-*/
 
 const getDashboardData = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -138,7 +37,8 @@ const getDashboardData = asyncHandler(async (req, res) => {
       // Basic counts
       Design.countDocuments({ userId: userIdObj }),
       Design.countDocuments({ userId: userIdObj, optimized: true }),
-      Design.countDocuments({ userId: userIdObj, visualized: true }),
+      //Design.countDocuments({ userId: userIdObj, visualized: true }),
+      NetworkTopology.countDocuments({ userId: userIdObj }),
       Team.countDocuments({ owner: userIdObj }),
 
       // Invitations breakdown

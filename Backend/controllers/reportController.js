@@ -131,60 +131,6 @@ const generateProfessionalReport = asyncHandler(async (req, res) => {
 // @route   GET /api/reports/:reportId/download
 // @access  Private
 
-/*
-const downloadReport = asyncHandler(async (req, res) => {
-  try {
-    const report = await NetworkReport.findOne({
-      _id: req.params.reportId,
-      userId: req.user._id,
-    });
-
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        error: "Report not found or access denied",
-      });
-    }
-
-    // Check if downloadUrl is a filesystem path
-    if (report.downloadUrl.startsWith("/reports/")) {
-      const filePath = path.join(__dirname, "..", report.downloadUrl);
-
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({
-          success: false,
-          error: "Report file not found",
-        });
-      }
-
-      // Set headers
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${report.title.replace(/\s+/g, "_")}.pdf"`
-      );
-
-      // Stream the file
-      const fileStream = fs.createReadStream(filePath);
-      fileStream.pipe(res);
-    } else {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid report file location",
-      });
-    }
-  } catch (error) {
-    console.error("Download report error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to download report",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
-
 const downloadReport = asyncHandler(async (req, res) => {
   try {
     const report = await NetworkReport.findOne({
@@ -398,7 +344,6 @@ const getReport = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  //generateFullReport,
   generateProfessionalReport,
   downloadReport,
   generateFromTemplate,

@@ -350,7 +350,11 @@ const archiveDesign = asyncHandler(async (req, res) => {
     { designStatus: "archived" },
     { new: true }
   );
-
+  //If the design is found
+  if (design) {
+    console.log(design.designName, " Was found and Archived Successfully");
+  }
+  //If there is no design.
   if (!design) {
     return res.status(404).json({
       success: false,
@@ -363,6 +367,7 @@ const archiveDesign = asyncHandler(async (req, res) => {
     $inc: { "subscription.designCount": -1 },
   });
 
+  console.log();
   res.json({
     success: true,
     message: "Design archived successfully",

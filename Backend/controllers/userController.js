@@ -447,6 +447,8 @@ const handleEmailVerification = asyncHandler(async (req, res) => {
 });
 
 // Updated loginUser function with proper async handling
+
+/*
 const loginUser = asyncHandler(async (req, res) => {
   const { idToken } = req.body;
 
@@ -601,12 +603,11 @@ const loginUser = asyncHandler(async (req, res) => {
     });
   }
 });
+*/
 
-// controllers/userController.js
-/*
+//Updated Login with clear History.
 const loginUser = asyncHandler(async (req, res) => {
   const { idToken } = req.body;
-
   if (!idToken) {
     return res.status(400).json({
       success: false,
@@ -615,43 +616,55 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Verify the ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const uid = decodedToken.uid;
-    const ipAddress =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const userAgent = req.headers["user-agent"];
 
-    console.log("Starting login process for user:", uid);
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const rawIP = forwardedFor ? forwardedFor.split(",")[0].trim() : req.ip;
 
-    // Check cache first
-    const cacheKey = `user-${uid}`;
-    if (userCache.has(cacheKey)) {
-      console.log("Serving from cache for user:", uid);
-      return res.json({
-        success: true,
-        data: userCache.get(cacheKey),
-      });
+    let ipv4 = null;
+    let ipv6 = null;
+    const possibleIPs = [
+      ...(forwardedFor ? forwardedFor.split(",").map((ip) => ip.trim()) : []),
+      req.ip,
+    ];
+
+    for (const ip of possibleIPs) {
+      if (ip.includes(":")) {
+        ipv6 = ipv6 || ip;
+      } else {
+        ipv4 = ipv4 || ip;
+      }
     }
 
-    // Fetch user from MongoDB with minimal fields
-    const user = await User.findOne({ firebaseUID: uid })
-      .select(
-        "_id name email role company subscription trial createdAt lastLogin"
-      )
-      .lean();
+    const userAgent = req.headers["user-agent"];
+    const cacheKey = `user-${uid}`;
+
+    // Check cache
+    if (userCache.has(cacheKey)) {
+      const cachedUser = userCache.get(cacheKey);
+      return res.json({ success: true, data: cachedUser });
+    }
+
+    //Get the user from DB.
+    let user = await User.findOne({ firebaseUID: uid });
+
+    let isFirstLogin = false;
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: "User not found",
+      isFirstLogin = true;
+      user = new User({
+        firebaseUID: uid,
+        name: decodedToken.name || "Unnamed User",
+        email: decodedToken.email || "",
+        profileImage: decodedToken.picture || "",
+        isFirstLogin: true,
+        emailVerified: decodedToken.email_verified || false,
       });
+      await user.save();
     }
 
-    const isFirstLogin = !user.lastLogin;
     const now = new Date();
-
-    // Prepare response data
     const userData = {
       _id: user._id,
       name: user.name,
@@ -664,41 +677,61 @@ const loginUser = asyncHandler(async (req, res) => {
       isFirstLogin,
     };
 
-    // Cache the user data
     userCache.set(cacheKey, userData);
     setTimeout(() => userCache.delete(cacheKey), CACHE_TTL);
 
-    // Send response immediately
-    res.json({
-      success: true,
-      data: userData,
-    });
+    res.json({ success: true, data: userData });
 
-    // Start background tasks after sending response
-    process.nextTick(async () => {
+    // Start background logging
+    (async () => {
       try {
-        // Create login history record in parallel with user update
-        await Promise.all([
-          LoginHistory.create({
-            userId: user._id,
-            ipAddress,
-            userAgent,
-            createdAt: now,
-            updatedAt: now,
-          }),
+        if (mongoose.connection.readyState !== 1) {
+          throw new Error("Database not connected");
+        }
 
-          User.updateOne(
-            { _id: user._id },
-            {
-              $set: {
-                lastLogin: now,
-                ...(isFirstLogin && { isFirstLogin: false }),
-              },
+        let location = {};
+        if (ipv4) {
+          try {
+            const geoRes = await axios.get(
+              `http://ip-api.com/json/${ipv4}?fields=status,country,regionName,city`
+            );
+            const geo = geoRes.data;
+            if (geo.status === "success") {
+              location = {
+                country: geo.country,
+                region: geo.regionName,
+                city: geo.city,
+              };
             }
-          ),
-        ]);
+          } catch (geoErr) {
+            console.warn("Geo lookup failed:", geoErr.message);
+          }
+        }
 
-        // Only send email if this is first login
+        const loginRecord = new LoginHistory({
+          userId: user._id,
+          ipAddress: ipv4 || "unknown",
+          ipv6Address: ipv6 || undefined,
+          userAgent,
+          location,
+          timestamp: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        const savedLogin = await loginRecord.save();
+
+        await User.updateOne(
+          { _id: user._id },
+          {
+            $push: { loginHistory: savedLogin._id },
+            $set: {
+              lastLogin: now,
+              ...(isFirstLogin && { isFirstLogin: false }),
+            },
+          }
+        );
+
         if (isFirstLogin) {
           await sendEmail(
             "First Login Notification",
@@ -706,13 +739,15 @@ const loginUser = asyncHandler(async (req, res) => {
             user.email
           );
         }
-      } catch (err) {
-        console.error("Background login tasks failed:", err.message);
+      } catch (logErr) {
+        console.error("Login history logging failed:", {
+          error: logErr.message,
+          userId: user._id,
+        });
       }
-    });
+    })();
   } catch (error) {
     console.error("Login error:", error.message);
-
     if (error.code === "auth/id-token-expired") {
       return res.status(401).json({
         success: false,
@@ -727,9 +762,9 @@ const loginUser = asyncHandler(async (req, res) => {
     });
   }
 });
-*/
 
 //Test History:
+/*
 const testLoginHistory = asyncHandler(async (req, res) => {
   try {
     console.log("TESTING LOGIN HISTORY CREATION");
@@ -757,6 +792,7 @@ const testLoginHistory = asyncHandler(async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+*/
 
 // Get Current User
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -1085,5 +1121,5 @@ module.exports = {
   handleEmailVerification,
   forgotPassword,
   resetPassword,
-  testLoginHistory,
+  //testLoginHistory,
 };

@@ -38,7 +38,7 @@ router.get("/", userTest);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 // History test route
-router.get("/test-login-history", testLoginHistory);
+//router.get("/test-login-history", testLoginHistory);
 
 // Protected Routes
 router.get("/all", verifyFirebaseToken, getAllUsers);

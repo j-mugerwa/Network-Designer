@@ -72,6 +72,7 @@ const convertToUI = (design: NetworkDesign): NetworkDesignUI => {
 };
 
 // Thunks
+// Design Creation thunk.
 export const createDesign = createAsyncThunk<
   NetworkDesignUI,
   CreateDesignPayload,

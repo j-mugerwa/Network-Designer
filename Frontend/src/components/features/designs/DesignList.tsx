@@ -61,6 +61,7 @@ export const DesignList = () => {
     handleMenuClose();
   };
 
+  //For archiving the Design.
   const handleArchiveDesign = async () => {
     if (selectedDesignId) {
       await dispatch(archiveDesign(selectedDesignId));

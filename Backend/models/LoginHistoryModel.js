@@ -12,6 +12,9 @@ const loginHistorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    ipv6Address: {
+      type: String,
+    },
     userAgent: {
       type: String,
     },

@@ -6,49 +6,6 @@ const IPCalculator = require("../services/ipCalculator");
 // @desc    Generate network topology
 // @route   POST /api/topology/:designId
 // @access  Private
-/*
-const generateTopology = asyncHandler(async (req, res) => {
-  try {
-    const design = await NetworkDesign.findOne({
-      _id: req.params.designId,
-      userId: req.user._id,
-    }).populate("devices");
-
-    if (!design) {
-      return res.status(404).json({
-        success: false,
-        error: "Design not found or access denied",
-      });
-    }
-
-    // Generate nodes and edges
-    const nodes = generateNodes(design);
-    const edges = generateEdges(design, nodes);
-
-    const topology = new NetworkTopology({
-      designId: design._id,
-      userId: req.user._id,
-      nodes,
-      edges,
-    });
-
-    await topology.save();
-
-    res.json({
-      success: true,
-      data: topology,
-      visualizationUrl: `/api/visualization/${topology._id}`,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: "Failed to generate topology",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
 
 const generateTopology = asyncHandler(async (req, res) => {
   try {
