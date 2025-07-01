@@ -248,15 +248,6 @@ const designSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      /*
-      .addCase(updateDesign.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentDesign = action.payload;
-        state.designs = state.designs.map((design) =>
-          design.id === action.payload.id ? action.payload : design
-        );
-      })
-        */
       .addCase(updateDesign.fulfilled, (state, action) => {
         state.loading = false;
         if (action.payload) {
@@ -296,5 +287,6 @@ const designSlice = createSlice({
 
 export const { resetDesignState, setCurrentDesign } = designSlice.actions;
 export const selectDesigns = (state: RootState) => state.designs;
-
+export const selectUserDesigns = (state: RootState) => state.designs.designs;
+export const selectDesignsLoading = (state: RootState) => state.designs.loading;
 export default designSlice.reducer;

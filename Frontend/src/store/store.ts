@@ -21,8 +21,12 @@ import designReducer from "@/store/slices/networkDesignSlice";
 import topologyReducer from "@/store/slices/networkTopologySlice";
 import networkReportReducer from "@/store/slices/networkReportSlice";
 import equipmentReducer from "@/store/slices/equipmentSlice";
+import { Equipment } from "@/types/equipment";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 
+interface EquipmentState {
+  equipment: Equipment[];
+}
 // Create a no-op storage for server-side
 const createNoopStorage = () => {
   return {

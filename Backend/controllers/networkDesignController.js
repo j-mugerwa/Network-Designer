@@ -2,7 +2,6 @@ const asyncHandler = require("express-async-handler");
 const NetworkDesign = require("../models/NetworkDesignModel");
 const User = require("../models/UserModel");
 const { validateDesignInput } = require("../middlewares/validateDesignInput");
-//const { checkDesignLimit } = require("../middleware/designMiddleware");
 
 // @desc    Create a new network design
 // @route   POST /api/designs

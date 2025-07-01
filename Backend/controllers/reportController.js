@@ -13,60 +13,6 @@ const fs = require("fs");
 // @route   POST /api/reports/full/:designId
 // @access  Private
 
-/*
-const generateProfessionalReport = asyncHandler(async (req, res) => {
-  try {
-    const design = await NetworkDesign.findOne({
-      _id: req.params.designId,
-      userId: req.user._id,
-    }).populate("devices");
-
-    if (!design) {
-      return res.status(404).json({
-        success: false,
-        error: "Design not found or access denied",
-      });
-    }
-
-    const reportContent = await ReportGenerator.generateProfessionalReport(
-      design
-    );
-    //const pdfUrl = await generatePDF(reportContent);
-
-    const pdfUrl = await generateProfessionalPDF(reportContent);
-
-    const report = await NetworkReport.create({
-      designId: design._id,
-      userId: req.user._id,
-      reportType: "professional",
-      title: reportContent.title,
-      content: reportContent,
-      format: "pdf",
-      downloadUrl: pdfUrl,
-    });
-
-    // Return both JSON and PDF options
-    res.json({
-      success: true,
-      message: "Professional report generated successfully",
-      data: {
-        reportId: report._id,
-        pdfUrl: pdfUrl,
-        structuredData: reportContent, // For API consumers
-      },
-    });
-  } catch (error) {
-    console.error("Professional report error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to generate professional report",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
-
 const generateProfessionalReport = asyncHandler(async (req, res) => {
   try {
     const design = await NetworkDesign.findOne({

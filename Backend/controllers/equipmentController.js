@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Equipment = require("../models/EquipmentModel");
+const User = require("../models/UserModel");
 const EquipmentRecommendation = require("../models/EquipmentRecommendationModel");
 const NetworkDesign = require("../models/NetworkDesignModel");
 //const { upload } = require("../utils/fileUpload");
@@ -43,7 +44,227 @@ const calculateFirewallNeeds = (design) => {
  * @route   POST /api/equipment
  * @access  Private (Admin only)
  */
+
+/*
 const createEquipment = asyncHandler(async (req, res) => {
+  try {
+    const {
+      category,
+      manufacturer,
+      model,
+      specs,
+      priceRange,
+      typicalUseCase,
+      isPublic,
+    } = req.body;
+
+    // Validate required fields
+    if (!category || !manufacturer || !model || !specs) {
+      return res.status(400).json({
+        success: false,
+        error: "Category, manufacturer, model, and specs are required",
+      });
+    }
+
+    // Parse specs if it's a string
+    const parsedSpecs = typeof specs === "string" ? JSON.parse(specs) : specs;
+
+    let imageUrl = "";
+
+    // Handle file upload if present
+    if (req.file && shouldUseCloudinary()) {
+      try {
+        imageUrl = await uploadToCloudinary(req.file.path, "equipment");
+      } catch (uploadError) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to upload image",
+          details: uploadError.message,
+        });
+      }
+    } else if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    }
+
+    // Check if user is admin trying to create system-owned equipment
+    const isSystemOwned =
+      req.user.fullUserDoc.role === "admin" && req.body.isSystemOwned;
+
+    const equipment = await Equipment.create({
+      category,
+      manufacturer,
+      model,
+      specs: parsedSpecs,
+      priceRange: priceRange || "$$",
+      typicalUseCase: typicalUseCase || "General purpose",
+      imageUrl,
+      createdBy: req.user._id,
+      isSystemOwned,
+      isPublic: isPublic || isSystemOwned, // System-owned equipment is always public
+    });
+
+    res.status(201).json({
+      success: true,
+      data: equipment,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+*/
+
+const createEquipment = asyncHandler(async (req, res) => {
+  try {
+    const {
+      category,
+      manufacturer,
+      model,
+      specs,
+      priceRange,
+      typicalUseCase,
+      isPublic,
+      datasheetUrl,
+      isPopular,
+      releaseYear,
+      endOfLife,
+      warranty,
+      location,
+      networkConfig,
+      maintenance,
+      isActive,
+    } = req.body;
+
+    // Validate required fields
+    if (!category || !manufacturer || !model || !specs) {
+      return res.status(400).json({
+        success: false,
+        error: "Category, manufacturer, model, and specs are required",
+      });
+    }
+
+    // Parse specs if it's a string
+    const parsedSpecs = typeof specs === "string" ? JSON.parse(specs) : specs;
+
+    // Validate IP addresses in specs and networkConfig
+    const validateIP = (ip) => {
+      if (!ip) return true;
+      return /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(
+        ip
+      );
+    };
+
+    if (parsedSpecs.managementIp && !validateIP(parsedSpecs.managementIp)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid management IP address format",
+      });
+    }
+
+    if (networkConfig?.ipAddress && !validateIP(networkConfig.ipAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid network IP address format",
+      });
+    }
+
+    // Handle file uploads
+    let imageUrl = "";
+    let datasheetFileUrl = "";
+
+    // Handle image upload
+    if (req.files?.image) {
+      try {
+        imageUrl = await uploadToCloudinary(
+          req.files.image[0].path,
+          "equipment/images"
+        );
+      } catch (uploadError) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to upload image",
+          details: uploadError.message,
+        });
+      }
+    }
+
+    // Handle datasheet upload if present
+    if (req.files?.datasheet) {
+      try {
+        datasheetFileUrl = await uploadToCloudinary(
+          req.files.datasheet[0].path,
+          "equipment/datasheets"
+        );
+      } catch (uploadError) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to upload datasheet",
+          details: uploadError.message,
+        });
+      }
+    }
+
+    // Check if user is admin trying to create system-owned equipment
+    const isSystemOwned =
+      req.user.fullUserDoc.role === "admin" && req.body.isSystemOwned;
+
+    // Parse date fields
+    const parseDate = (dateString) => {
+      if (!dateString) return undefined;
+      return new Date(dateString);
+    };
+
+    // Create equipment with all fields
+    const equipment = await Equipment.create({
+      category,
+      manufacturer,
+      model,
+      specs: parsedSpecs,
+      priceRange: priceRange || "$$",
+      typicalUseCase: typicalUseCase || "General purpose",
+      imageUrl,
+      datasheetUrl: datasheetFileUrl || datasheetUrl,
+      isPopular: isPopular || false,
+      releaseYear,
+      endOfLife: parseDate(endOfLife),
+      warranty: warranty || { type: "limited" },
+      createdBy: req.user._id,
+      isSystemOwned,
+      isPublic: isPublic || isSystemOwned, // System-owned equipment is always public
+      isActive: isActive !== false, // Default to true if not specified
+      location: location || {},
+      networkConfig: networkConfig || {},
+      maintenance: maintenance
+        ? {
+            ...maintenance,
+            lastMaintained: parseDate(maintenance.lastMaintained),
+          }
+        : {},
+    });
+
+    res.status(201).json({
+      success: true,
+      data: equipment,
+    });
+  } catch (error) {
+    console.error("Error creating equipment:", error);
+    res.status(500).json({
+      success: false,
+      error: "Server error occurred while creating equipment",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * @desc    Create system-owned equipment (admin only)
+ * @route   POST /api/equipment/system
+ * @access  Private (Admin only)
+ */
+const createSystemEquipment = asyncHandler(async (req, res) => {
   try {
     const { category, manufacturer, model, specs, priceRange, typicalUseCase } =
       req.body;
@@ -61,7 +282,7 @@ const createEquipment = asyncHandler(async (req, res) => {
 
     let imageUrl = "";
 
-    // Handle file upload if present and Cloudinary is enabled
+    // Handle file upload if present
     if (req.file && shouldUseCloudinary()) {
       try {
         imageUrl = await uploadToCloudinary(req.file.path, "equipment");
@@ -73,7 +294,6 @@ const createEquipment = asyncHandler(async (req, res) => {
         });
       }
     } else if (req.file) {
-      // Handle local file storage if Cloudinary is disabled
       imageUrl = `/uploads/${req.file.filename}`;
     }
 
@@ -85,6 +305,9 @@ const createEquipment = asyncHandler(async (req, res) => {
       priceRange: priceRange || "$$",
       typicalUseCase: typicalUseCase || "General purpose",
       imageUrl,
+      createdBy: req.user._id,
+      isSystemOwned: true,
+      isPublic: true,
     });
 
     res.status(201).json({
@@ -104,14 +327,21 @@ const createEquipment = asyncHandler(async (req, res) => {
  * @route   GET /api/equipment
  * @access  Public
  */
+
 const getAllEquipment = asyncHandler(async (req, res) => {
   try {
-    // Add pagination, filtering, and sorting
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    let query = {};
+    let query = { isPublic: true }; // Only show public equipment by default
+
+    // For authenticated users, include their private equipment
+    if (req.user) {
+      query = {
+        $or: [{ isPublic: true }, { createdBy: req.user._id }],
+      };
+    }
 
     // Filter by category if provided
     if (req.query.category) {
@@ -128,10 +358,17 @@ const getAllEquipment = asyncHandler(async (req, res) => {
       query["specs.portSpeed"] = req.query.portSpeed;
     }
 
+    // Filter by system-owned if specified
+    if (req.query.systemOwned === "true") {
+      query.isSystemOwned = true;
+    } else if (req.query.systemOwned === "false") {
+      query.isSystemOwned = false;
+    }
+
     const equipment = await Equipment.find(query)
       .skip(skip)
       .limit(limit)
-      .sort({ manufacturer: 1, model: 1 });
+      .sort({ isSystemOwned: -1, manufacturer: 1, model: 1 }); // System-owned first
 
     const total = await Equipment.countDocuments(query);
 
@@ -156,6 +393,7 @@ const getAllEquipment = asyncHandler(async (req, res) => {
  * @route   GET /api/equipment/:id
  * @access  Public
  */
+
 const getEquipment = asyncHandler(async (req, res) => {
   try {
     const equipment = await Equipment.findById(req.params.id);
@@ -175,6 +413,84 @@ const getEquipment = asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message,
+    });
+  }
+});
+
+/*
+const getUserEquipment = asyncHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Convert the string ID to ObjectId
+    const query = {
+      createdBy: mongoose.Types.ObjectId(req.user._id),
+    };
+
+    const equipment = await Equipment.find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .populate("createdBy", "name email"); // Optional: populate user details
+
+    const total = await Equipment.countDocuments(query);
+
+    res.json({
+      success: true,
+      count: equipment.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      data: equipment,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+*/
+
+const getUserEquipment = asyncHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // First get the full user document to ensure we have the right ID
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const query = { createdBy: user._id }; // Use the user's _id directly
+
+    const equipment = await Equipment.find(query)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .populate("createdBy", "name email");
+
+    const total = await Equipment.countDocuments(query);
+
+    res.json({
+      success: true,
+      count: equipment.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      data: equipment,
+    });
+  } catch (error) {
+    console.error("Error in getUserEquipment:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch user equipment",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -301,8 +617,11 @@ const deleteEquipment = asyncHandler(async (req, res) => {
  * @route   GET /api/equipment/recommendations/:designId
  * @access  Private
  */
+
+/*
 const getEquipmentRecommendations = asyncHandler(async (req, res) => {
   try {
+    console.log("Fetching design:", req.params.designId);
     const design = await NetworkDesign.findById(req.params.designId);
 
     if (!design) {
@@ -313,85 +632,371 @@ const getEquipmentRecommendations = asyncHandler(async (req, res) => {
     }
 
     // Get requirements
+    console.log("Calculating switch needs");
     const switchRequirements = calculateSwitchNeeds(design);
+    console.log("Switch requirements:", switchRequirements);
     const routerRequirements = calculateRouterNeeds(design);
+    console.log("Router requirements:", routerRequirements);
     const firewallRequirements = calculateFirewallNeeds(design);
+    console.log("Firewall requirements:", firewallRequirements);
 
-    // Build queries
+    // Build queries - prioritize system-owned equipment for recommendations
     const queries = {
       switch: {
         category: "switch",
         "specs.ports": { $gte: switchRequirements.ports },
         "specs.portSpeed": switchRequirements.speed,
+        isSystemOwned: true,
       },
       router: {
         category: "router",
         "specs.ports": { $gte: routerRequirements.ports },
         "specs.portSpeed": routerRequirements.speed,
+        isSystemOwned: true,
       },
       firewall: {
         category: "firewall",
         "specs.ports": { $gte: firewallRequirements.ports },
         "specs.portSpeed": firewallRequirements.speed,
+        isSystemOwned: true,
       },
     };
 
     // Execute queries in parallel
-    const [switches, routers, firewalls] = await Promise.all([
+    let [switches, routers, firewalls] = await Promise.all([
       Equipment.find(queries.switch).sort({ priceRange: 1 }),
       Equipment.find(queries.router).sort({ priceRange: 1 }),
       Equipment.find(queries.firewall).sort({ priceRange: 1 }),
     ]);
 
-    // Create recommendation
+    // Fallback to public equipment if no system-owned found
+    const findFallbackEquipment = async (originalQuery, category) => {
+      const fallbackQuery = {
+        ...originalQuery,
+        isSystemOwned: false,
+        isPublic: true,
+      };
+      return await Equipment.find(fallbackQuery).sort({ priceRange: 1 });
+    };
+
+    if (switches.length === 0) {
+      switches = await findFallbackEquipment(queries.switch, "switch");
+    }
+
+    if (routers.length === 0) {
+      routers = await findFallbackEquipment(queries.router, "router");
+    }
+
+    if (firewalls.length === 0) {
+      firewalls = await findFallbackEquipment(queries.firewall, "firewall");
+    }
+
+    // Create recommendations only if equipment is found
+    const recommendations = [];
+
+    if (switches.length > 0) {
+      recommendations.push({
+        category: "switch",
+        recommendedEquipment: switches[0]._id,
+        quantity: switchRequirements.count,
+        placement: "Core distribution",
+        justification: `Based on ${design.requirements.totalUsers} users and ${design.requirements.bandwidth}Mbps bandwidth`,
+        alternatives: switches.slice(1, 3).map((e) => e._id),
+      });
+    }
+
+    if (routers.length > 0) {
+      recommendations.push({
+        category: "router",
+        recommendedEquipment: routers[0]._id,
+        quantity: routerRequirements.count,
+        placement: "Network edge",
+        justification: "For routing between network segments",
+        alternatives: routers.slice(1, 3).map((e) => e._id),
+      });
+    }
+
+    if (firewalls.length > 0) {
+      recommendations.push({
+        category: "firewall",
+        recommendedEquipment: firewalls[0]._id,
+        quantity: firewallRequirements.count,
+        placement: "Between border router and ISP",
+        justification: "For network security and traffic filtering",
+        alternatives: firewalls.slice(1, 3).map((e) => e._id),
+      });
+    }
+
+    if (recommendations.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No suitable equipment found for this design",
+      });
+    }
+
     const recommendation = new EquipmentRecommendation({
       designId: design._id,
       userId: req.user._id,
-      recommendations: [
-        {
-          category: "switch",
-          recommendedEquipment: switches[0]?._id,
-          quantity: switchRequirements.count,
-          placement: "Core distribution",
-          justification: `Based on ${design.requirements.totalUsers} users and ${design.requirements.bandwidth}Mbps bandwidth`,
-          alternatives: switches.slice(1, 3).map((e) => e._id), // Include alternatives
-        },
-        {
-          category: "router",
-          recommendedEquipment: routers[0]?._id,
-          quantity: routerRequirements.count,
-          placement: "Network edge",
-          justification: "For routing between network segments",
-          alternatives: routers.slice(1, 3).map((e) => e._id),
-        },
-        {
-          category: "firewall",
-          recommendedEquipment: firewalls[0]?._id,
-          quantity: firewallRequirements.count,
-          placement: "Between border router and ISP",
-          justification: "For network security and traffic filtering",
-          alternatives: firewalls.slice(1, 3).map((e) => e._id),
-        },
-      ],
+      recommendations,
     });
 
     await recommendation.save();
 
-    // Populate equipment details in the response
     const populatedRecommendation = await EquipmentRecommendation.findById(
       recommendation._id
     )
-      .populate("recommendations.recommendedEquipment")
-      .populate("recommendations.alternatives");
+      .populate({
+        path: "recommendations.recommendedEquipment",
+        model: "Equipment",
+        select: "manufacturer model imageUrl specs typicalUseCase",
+      })
+      .populate({
+        path: "recommendations.alternatives",
+        model: "Equipment",
+        select: "manufacturer model imageUrl specs typicalUseCase",
+      });
 
     res.json({
       success: true,
       data: populatedRecommendation,
     });
   } catch (error) {
+    console.error("Recommendation generation failed:", error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: "Failed to generate recommendations",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+*/
+
+const getEquipmentRecommendations = asyncHandler(async (req, res) => {
+  try {
+    console.log("Fetching design:", req.params.designId);
+    const design = await NetworkDesign.findById(req.params.designId);
+
+    if (!design) {
+      return res.status(404).json({
+        success: false,
+        error: "Network design was not found",
+      });
+    }
+
+    // Get requirements
+    console.log("Calculating switch needs");
+    const switchRequirements = calculateSwitchNeeds(design);
+    console.log("Switch requirements:", switchRequirements);
+    const routerRequirements = calculateRouterNeeds(design);
+    console.log("Router requirements:", routerRequirements);
+    const firewallRequirements = calculateFirewallNeeds(design);
+    console.log("Firewall requirements:", firewallRequirements);
+
+    // Helper function to find equipment combinations
+    const findSwitchCombinations = async (requiredPorts, portSpeed) => {
+      // First try to find single switch that meets requirements
+      let query = {
+        category: "switch",
+        "specs.ports": { $gte: requiredPorts },
+        "specs.portSpeed": portSpeed,
+        isSystemOwned: true,
+      };
+
+      let switches = await Equipment.find(query).sort({ priceRange: 1 });
+
+      if (switches.length > 0) {
+        return {
+          equipment: switches[0]._id,
+          quantity: 1,
+          alternatives: switches.slice(1, 3).map((e) => e._id),
+        };
+      }
+
+      // If no single switch found, look for combinations of smaller switches
+      query = {
+        category: "switch",
+        "specs.portSpeed": portSpeed,
+        isSystemOwned: true,
+      };
+
+      const allSwitches = await Equipment.find(query).sort({
+        "specs.ports": -1,
+        priceRange: 1,
+      });
+
+      if (allSwitches.length === 0) {
+        return null;
+      }
+
+      // Find most efficient combination
+      let remainingPorts = requiredPorts;
+      const selectedSwitches = [];
+      let alternativeCombinations = [];
+
+      for (const switchItem of allSwitches) {
+        const ports = switchItem.specs.ports;
+        const count = Math.ceil(remainingPorts / ports);
+
+        if (count * ports >= remainingPorts) {
+          selectedSwitches.push({
+            equipment: switchItem._id,
+            quantity: count,
+          });
+          remainingPorts = 0;
+          break;
+        }
+      }
+
+      if (remainingPorts > 0) {
+        return null; // Couldn't find suitable combination
+      }
+
+      // For alternatives, suggest different models with similar total capacity
+      if (allSwitches.length > 1) {
+        alternativeCombinations = allSwitches.slice(1, 3).map((switchItem) => ({
+          equipment: switchItem._id,
+          quantity: Math.ceil(requiredPorts / switchItem.specs.ports),
+        }));
+      }
+
+      return {
+        equipment: selectedSwitches[0].equipment,
+        quantity: selectedSwitches[0].quantity,
+        alternatives: alternativeCombinations.map((c) => c.equipment),
+      };
+    };
+
+    // Build queries for routers and firewalls (unchanged)
+    const queries = {
+      router: {
+        category: "router",
+        "specs.ports": { $gte: routerRequirements.ports },
+        "specs.portSpeed": routerRequirements.speed,
+        isSystemOwned: true,
+      },
+      firewall: {
+        category: "firewall",
+        "specs.ports": { $gte: firewallRequirements.ports },
+        "specs.portSpeed": firewallRequirements.speed,
+        isSystemOwned: true,
+      },
+    };
+
+    // Execute queries in parallel
+    const [switchCombo, routers, firewalls] = await Promise.all([
+      findSwitchCombinations(
+        switchRequirements.ports,
+        switchRequirements.speed
+      ),
+      Equipment.find(queries.router).sort({ priceRange: 1 }),
+      Equipment.find(queries.firewall).sort({ priceRange: 1 }),
+    ]);
+
+    // Fallback to public equipment if no system-owned found (for routers and firewalls)
+    const findFallbackEquipment = async (originalQuery, category) => {
+      const fallbackQuery = {
+        ...originalQuery,
+        isSystemOwned: false,
+        isPublic: true,
+      };
+      return await Equipment.find(fallbackQuery).sort({ priceRange: 1 });
+    };
+
+    let publicRouters = [];
+    if (routers.length === 0) {
+      publicRouters = await findFallbackEquipment(queries.router, "router");
+    }
+
+    let publicFirewalls = [];
+    if (firewalls.length === 0) {
+      publicFirewalls = await findFallbackEquipment(
+        queries.firewall,
+        "firewall"
+      );
+    }
+
+    // Create recommendations
+    const recommendations = [];
+
+    // Switch recommendation
+    if (switchCombo) {
+      recommendations.push({
+        category: "switch",
+        recommendedEquipment: switchCombo.equipment,
+        quantity: switchCombo.quantity,
+        placement: "Core distribution",
+        justification: `Based on ${design.requirements.totalUsers} users and ${design.requirements.bandwidth}Mbps bandwidth`,
+        alternatives: switchCombo.alternatives,
+      });
+    }
+
+    // Router recommendation
+    const routerOptions = routers.length > 0 ? routers : publicRouters;
+    if (routerOptions.length > 0) {
+      recommendations.push({
+        category: "router",
+        recommendedEquipment: routerOptions[0]._id,
+        quantity: routerRequirements.count,
+        placement: "Network edge",
+        justification: "For routing between network segments",
+        alternatives: routerOptions.slice(1, 3).map((e) => e._id),
+      });
+    }
+
+    // Firewall recommendation
+    const firewallOptions = firewalls.length > 0 ? firewalls : publicFirewalls;
+    if (firewallOptions.length > 0) {
+      recommendations.push({
+        category: "firewall",
+        recommendedEquipment: firewallOptions[0]._id,
+        quantity: firewallRequirements.count,
+        placement: "Between border router and ISP",
+        justification: "For network security and traffic filtering",
+        alternatives: firewallOptions.slice(1, 3).map((e) => e._id),
+      });
+    }
+
+    if (recommendations.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No suitable equipment found for this design",
+      });
+    }
+
+    const recommendation = new EquipmentRecommendation({
+      designId: design._id,
+      userId: req.user._id,
+      recommendations,
+    });
+
+    await recommendation.save();
+
+    const populatedRecommendation = await EquipmentRecommendation.findById(
+      recommendation._id
+    )
+      .populate({
+        path: "recommendations.recommendedEquipment",
+        model: "Equipment",
+        select: "manufacturer model imageUrl specs typicalUseCase",
+      })
+      .populate({
+        path: "recommendations.alternatives",
+        model: "Equipment",
+        select: "manufacturer model imageUrl specs typicalUseCase",
+      });
+
+    res.json({
+      success: true,
+      data: populatedRecommendation,
+    });
+  } catch (error) {
+    console.error("Recommendation generation failed:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate recommendations",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -456,8 +1061,10 @@ const getSimilarEquipment = asyncHandler(async (req, res) => {
 
 module.exports = {
   createEquipment,
+  createSystemEquipment,
   getAllEquipment,
   getEquipment,
+  getUserEquipment,
   updateEquipment,
   deleteEquipment,
   getEquipmentRecommendations,

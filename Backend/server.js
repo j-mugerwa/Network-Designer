@@ -87,6 +87,18 @@ app.use("/api/topology", visualizationRoutes);
 
 //Serve Static files:
 app.use("/report", express.static(path.join(__dirname, "reports")));
+
+// Middleware for file upload routes
+app.use((req, res, next) => {
+  if (req.file) {
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (![".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
+      return res.status(400).json({ error: "Invalid file type" });
+    }
+  }
+  next();
+});
+
 // Load SSL certificate and key
 const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
 const certificate = fs.readFileSync("./certs/cert.crt", "utf8");

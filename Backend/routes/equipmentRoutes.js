@@ -2,7 +2,9 @@ const express = require("express");
 const router = express.Router();
 const {
   createEquipment,
+  createSystemEquipment,
   getAllEquipment,
+  getUserEquipment,
   getEquipment,
   updateEquipment,
   deleteEquipment,
@@ -11,46 +13,43 @@ const {
   getSimilarEquipment,
 } = require("../controllers/equipmentController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
-const { checkSubscription } = require("../middlewares/subscription");
+const { checkRole } = require("../middlewares/roleMiddleware");
 const { upload } = require("../utils/fileUpload");
 
-// Public routes
+// ========== Public Routes ==========
 router.get("/", getAllEquipment);
 router.get("/category/:category", getEquipmentByCategory);
 router.get("/similar/:id", getSimilarEquipment);
-router.get("/:id", getEquipment);
 
-// Protected routes (require authentication)
+// ========== Authenticated User Routes ==========
+router.get("/user/", verifyFirebaseToken, getUserEquipment);
 router.get(
   "/recommendations/:designId",
   verifyFirebaseToken,
-  checkSubscription("equipmentRecommendations"),
   getEquipmentRecommendations
 );
 
-// Admin-only routes with file upload support
-//checkSubscription("apiAccess"),
+// ========== Equipment CRUD Routes ==========
+// Create
+router.post("/", verifyFirebaseToken, upload.single("image"), createEquipment);
 router.post(
-  "/",
+  "/system",
   verifyFirebaseToken,
-  checkSubscription("apiAccess"),
+  checkRole("admin"),
   upload.single("image"),
-  createEquipment
+  createSystemEquipment
 );
 
+// Read (must come after more specific routes)
+router.get("/:id", getEquipment);
+
+// Update & Delete
 router.put(
   "/:id",
   verifyFirebaseToken,
-  checkSubscription("apiAccess"),
   upload.single("image"),
   updateEquipment
 );
-
-router.delete(
-  "/:id",
-  verifyFirebaseToken,
-  checkSubscription("apiAccess"),
-  deleteEquipment
-);
+router.delete("/:id", verifyFirebaseToken, deleteEquipment);
 
 module.exports = router;
