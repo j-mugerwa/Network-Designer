@@ -11,6 +11,9 @@ const {
   getEquipmentRecommendations,
   getEquipmentByCategory,
   getSimilarEquipment,
+  assignEquipmentToDesign,
+  removeEquipmentFromDesign,
+  getDesignEquipment,
 } = require("../controllers/equipmentController");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 const { checkRole } = require("../middlewares/roleMiddleware");
@@ -28,6 +31,17 @@ router.get(
   verifyFirebaseToken,
   getEquipmentRecommendations
 );
+
+// ========== Equipment-Design Relationship Routes ==========
+router.post("/assign-to-design", verifyFirebaseToken, assignEquipmentToDesign);
+
+router.delete(
+  "/remove-from-design",
+  verifyFirebaseToken,
+  removeEquipmentFromDesign
+);
+
+router.get("/design/:designId", verifyFirebaseToken, getDesignEquipment);
 
 // ========== Equipment CRUD Routes ==========
 // Create

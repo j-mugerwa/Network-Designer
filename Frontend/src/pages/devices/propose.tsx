@@ -15,7 +15,14 @@ import {
   selectDesignsLoading,
 } from "@/store/slices/networkDesignSlice";
 import type { AppDispatch } from "@/store/store";
-import { Alert, CircularProgress, Button, Box } from "@mui/material";
+import {
+  Alert,
+  CircularProgress,
+  Button,
+  Box,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { PageHeader } from "@/components/ui/PageHeader";
 import RecommendationList from "@/components/features/equipment/RecommendationList";
 import DesignSelector from "@/components/features/designs/DesignSelector";
@@ -68,9 +75,23 @@ const ProposeEquipmentPage = () => {
 
         <Box
           className="bg-white rounded-lg shadow p-6 mb-8"
-          sx={{ backgroundColor: "background.paper" }}
+          sx={{
+            backgroundColor: "background.paper",
+            border: 1,
+            borderColor: "divider",
+          }}
         >
-          <h3 className="text-lg font-medium mb-4">Select a Network Design</h3>
+          <Typography
+            variant="h6"
+            component="h3"
+            sx={{
+              mb: 3,
+              fontWeight: 600,
+              color: "text.primary",
+            }}
+          >
+            Select a Network Design
+          </Typography>
 
           {designsLoading ? (
             <Box display="flex" justifyContent="center" py={4}>
@@ -81,20 +102,28 @@ const ProposeEquipmentPage = () => {
               No designs available. Please create a design first.
             </Alert>
           ) : (
-            <Box className="flex flex-col md:flex-row gap-4 items-end">
-              <DesignSelector
-                designs={designs}
-                selectedDesignId={selectedDesignId}
-                onSelectDesign={setSelectedDesignId}
-                className="flex-grow"
-              />
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={3}
+              alignItems="flex-end"
+            >
+              <Box sx={{ flexGrow: 1 }}>
+                <DesignSelector
+                  designs={designs}
+                  selectedDesignId={selectedDesignId}
+                  onSelectDesign={setSelectedDesignId}
+                  helperText="Choose a design to generate equipment recommendations"
+                />
+              </Box>
               <Button
                 variant="contained"
                 onClick={handleGetRecommendations}
                 disabled={!selectedDesignId || equipmentLoading}
+                size="large"
                 sx={{
-                  height: 56,
                   minWidth: 200,
+                  height: 56,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {equipmentLoading ? (
@@ -103,7 +132,7 @@ const ProposeEquipmentPage = () => {
                   "Get Recommendations"
                 )}
               </Button>
-            </Box>
+            </Stack>
           )}
         </Box>
 
@@ -116,7 +145,11 @@ const ProposeEquipmentPage = () => {
         {recommendation && (
           <Box
             className="bg-white rounded-lg shadow p-6"
-            sx={{ backgroundColor: "background.paper" }}
+            sx={{
+              backgroundColor: "background.paper",
+              border: 1,
+              borderColor: "divider",
+            }}
           >
             <RecommendationList recommendation={recommendation} />
           </Box>

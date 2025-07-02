@@ -178,8 +178,17 @@ const networkDesignSchema = new mongoose.Schema(
     isTemplate: { type: Boolean, default: false },
     devices: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Equipment",
+        equipmentId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Equipment",
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 1,
+          min: 1,
+        },
       },
     ],
     reports: [

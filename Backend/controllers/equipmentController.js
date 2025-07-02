@@ -3,6 +3,7 @@ const Equipment = require("../models/EquipmentModel");
 const User = require("../models/UserModel");
 const EquipmentRecommendation = require("../models/EquipmentRecommendationModel");
 const NetworkDesign = require("../models/NetworkDesignModel");
+const mongoose = require("mongoose");
 //const { upload } = require("../utils/fileUpload");
 const {
   uploadToCloudinary,
@@ -618,160 +619,6 @@ const deleteEquipment = asyncHandler(async (req, res) => {
  * @access  Private
  */
 
-/*
-const getEquipmentRecommendations = asyncHandler(async (req, res) => {
-  try {
-    console.log("Fetching design:", req.params.designId);
-    const design = await NetworkDesign.findById(req.params.designId);
-
-    if (!design) {
-      return res.status(404).json({
-        success: false,
-        error: "Network design was not found",
-      });
-    }
-
-    // Get requirements
-    console.log("Calculating switch needs");
-    const switchRequirements = calculateSwitchNeeds(design);
-    console.log("Switch requirements:", switchRequirements);
-    const routerRequirements = calculateRouterNeeds(design);
-    console.log("Router requirements:", routerRequirements);
-    const firewallRequirements = calculateFirewallNeeds(design);
-    console.log("Firewall requirements:", firewallRequirements);
-
-    // Build queries - prioritize system-owned equipment for recommendations
-    const queries = {
-      switch: {
-        category: "switch",
-        "specs.ports": { $gte: switchRequirements.ports },
-        "specs.portSpeed": switchRequirements.speed,
-        isSystemOwned: true,
-      },
-      router: {
-        category: "router",
-        "specs.ports": { $gte: routerRequirements.ports },
-        "specs.portSpeed": routerRequirements.speed,
-        isSystemOwned: true,
-      },
-      firewall: {
-        category: "firewall",
-        "specs.ports": { $gte: firewallRequirements.ports },
-        "specs.portSpeed": firewallRequirements.speed,
-        isSystemOwned: true,
-      },
-    };
-
-    // Execute queries in parallel
-    let [switches, routers, firewalls] = await Promise.all([
-      Equipment.find(queries.switch).sort({ priceRange: 1 }),
-      Equipment.find(queries.router).sort({ priceRange: 1 }),
-      Equipment.find(queries.firewall).sort({ priceRange: 1 }),
-    ]);
-
-    // Fallback to public equipment if no system-owned found
-    const findFallbackEquipment = async (originalQuery, category) => {
-      const fallbackQuery = {
-        ...originalQuery,
-        isSystemOwned: false,
-        isPublic: true,
-      };
-      return await Equipment.find(fallbackQuery).sort({ priceRange: 1 });
-    };
-
-    if (switches.length === 0) {
-      switches = await findFallbackEquipment(queries.switch, "switch");
-    }
-
-    if (routers.length === 0) {
-      routers = await findFallbackEquipment(queries.router, "router");
-    }
-
-    if (firewalls.length === 0) {
-      firewalls = await findFallbackEquipment(queries.firewall, "firewall");
-    }
-
-    // Create recommendations only if equipment is found
-    const recommendations = [];
-
-    if (switches.length > 0) {
-      recommendations.push({
-        category: "switch",
-        recommendedEquipment: switches[0]._id,
-        quantity: switchRequirements.count,
-        placement: "Core distribution",
-        justification: `Based on ${design.requirements.totalUsers} users and ${design.requirements.bandwidth}Mbps bandwidth`,
-        alternatives: switches.slice(1, 3).map((e) => e._id),
-      });
-    }
-
-    if (routers.length > 0) {
-      recommendations.push({
-        category: "router",
-        recommendedEquipment: routers[0]._id,
-        quantity: routerRequirements.count,
-        placement: "Network edge",
-        justification: "For routing between network segments",
-        alternatives: routers.slice(1, 3).map((e) => e._id),
-      });
-    }
-
-    if (firewalls.length > 0) {
-      recommendations.push({
-        category: "firewall",
-        recommendedEquipment: firewalls[0]._id,
-        quantity: firewallRequirements.count,
-        placement: "Between border router and ISP",
-        justification: "For network security and traffic filtering",
-        alternatives: firewalls.slice(1, 3).map((e) => e._id),
-      });
-    }
-
-    if (recommendations.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: "No suitable equipment found for this design",
-      });
-    }
-
-    const recommendation = new EquipmentRecommendation({
-      designId: design._id,
-      userId: req.user._id,
-      recommendations,
-    });
-
-    await recommendation.save();
-
-    const populatedRecommendation = await EquipmentRecommendation.findById(
-      recommendation._id
-    )
-      .populate({
-        path: "recommendations.recommendedEquipment",
-        model: "Equipment",
-        select: "manufacturer model imageUrl specs typicalUseCase",
-      })
-      .populate({
-        path: "recommendations.alternatives",
-        model: "Equipment",
-        select: "manufacturer model imageUrl specs typicalUseCase",
-      });
-
-    res.json({
-      success: true,
-      data: populatedRecommendation,
-    });
-  } catch (error) {
-    console.error("Recommendation generation failed:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to generate recommendations",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
-
 const getEquipmentRecommendations = asyncHandler(async (req, res) => {
   try {
     console.log("Fetching design:", req.params.designId);
@@ -1059,6 +906,564 @@ const getSimilarEquipment = asyncHandler(async (req, res) => {
   }
 });
 
+// Equipment Design related functions.
+
+/**
+ * @desc    Assign equipment to a network design
+ * @route   POST /api/equipment/assign-to-design
+ * @access  Private
+ */
+
+/*
+const assignEquipmentToDesign = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { designId, equipment } = req.body; // Changed from equipmentIds to equipment array
+
+    // Validate input
+    if (!designId || !equipment || !Array.isArray(equipment)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        error: "Design ID and equipment array are required",
+      });
+    }
+
+    // Verify design exists and belongs to user
+    const design = await NetworkDesign.findOne({
+      _id: designId,
+      userId: req.user._id,
+    }).session(session);
+
+    if (!design) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or access denied",
+      });
+    }
+
+    // Extract equipment IDs for validation
+    const equipmentIds = equipment.map((item) => item.equipmentId);
+
+    // Verify all equipment exists
+    const equipmentItems = await Equipment.find({
+      _id: { $in: equipmentIds },
+      $or: [{ isPublic: true }, { createdBy: req.user._id }],
+    }).session(session);
+
+    if (equipmentItems.length !== equipmentIds.length) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        error: "One or more equipment items not found or access denied",
+      });
+    }
+
+    // Prepare equipment assignments with quantities
+    const equipmentAssignments = equipment.map((item) => ({
+      equipmentId: item.equipmentId,
+      quantity: item.quantity || 1, // Default to 1 if quantity not provided
+    }));
+
+    // Get existing equipment in design to handle updates
+    const existingAssignments = design.devices || [];
+
+    // Merge new assignments with existing ones
+    const updatedAssignments = [...existingAssignments];
+
+    equipmentAssignments.forEach((newItem) => {
+      const existingIndex = updatedAssignments.findIndex(
+        (item) => item.equipmentId.toString() === newItem.equipmentId
+      );
+
+      if (existingIndex >= 0) {
+        // Update quantity if equipment already exists in design
+        updatedAssignments[existingIndex].quantity = newItem.quantity;
+      } else {
+        // Add new equipment assignment
+        updatedAssignments.push(newItem);
+      }
+    });
+
+    // Update design with all assignments
+    const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+      designId,
+      {
+        $set: {
+          devices: updatedAssignments,
+          lastModified: new Date(),
+        },
+      },
+      { new: true, session }
+    ).populate({
+      path: "devices.equipmentId",
+      model: "Equipment",
+    });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: `${equipmentAssignments.length} equipment item(s) assigned/updated in design`,
+      data: updatedDesign,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Assign equipment error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to assign equipment to design",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+*/
+
+/*
+const assignEquipmentToDesign = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { designId, equipment } = req.body;
+
+    // Validate input
+    if (!designId || !equipment || !Array.isArray(equipment)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        error: "Design ID and equipment array are required",
+      });
+    }
+
+    // Verify design exists and belongs to user
+    const design = await NetworkDesign.findOne({
+      _id: designId,
+      userId: req.user._id,
+    }).session(session);
+
+    if (!design) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or access denied",
+      });
+    }
+
+    // Validate and prepare equipment assignments
+    const equipmentAssignments = [];
+    const equipmentIds = [];
+
+    for (const item of equipment) {
+      if (!item.equipmentId) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          error: "Each equipment item must have an equipmentId",
+        });
+      }
+
+      equipmentIds.push(mongoose.Types.ObjectId(item.equipmentId));
+      equipmentAssignments.push({
+        equipmentId: mongoose.Types.ObjectId(item.equipmentId),
+        quantity:
+          item.quantity && Number.isInteger(item.quantity) ? item.quantity : 1,
+      });
+    }
+
+    // Verify all equipment exists
+    const equipmentItems = await Equipment.find({
+      _id: { $in: equipmentIds },
+      $or: [{ isPublic: true }, { createdBy: req.user._id }],
+    }).session(session);
+
+    if (equipmentItems.length !== equipmentIds.length) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        error: "One or more equipment items not found or access denied",
+      });
+    }
+
+    // Convert existing assignments to Map for easier updates
+    const existingAssignments = new Map(
+      (design.devices || []).map((item) => [item.equipmentId.toString(), item])
+    );
+
+    // Update or add new assignments
+    for (const newItem of equipmentAssignments) {
+      const equipmentIdStr = newItem.equipmentId.toString();
+      if (existingAssignments.has(equipmentIdStr)) {
+        // Update quantity if exists
+        existingAssignments.get(equipmentIdStr).quantity = newItem.quantity;
+      } else {
+        // Add new assignment
+        existingAssignments.set(equipmentIdStr, newItem);
+      }
+    }
+
+    // Convert back to array
+    const updatedAssignments = Array.from(existingAssignments.values());
+
+    // Update design
+    const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+      designId,
+      {
+        $set: {
+          devices: updatedAssignments,
+          lastModified: new Date(),
+        },
+      },
+      { new: true, session }
+    ).populate({
+      path: "devices.equipmentId",
+      model: "Equipment",
+    });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: `${equipmentAssignments.length} equipment item(s) assigned/updated in design`,
+      data: updatedDesign,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Assign equipment error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to assign equipment to design",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+*/
+
+const assignEquipmentToDesign = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { designId, equipment } = req.body;
+
+    // Validate input
+    if (!designId || !equipment || !Array.isArray(equipment)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        error: "Design ID and equipment array are required",
+      });
+    }
+
+    // Verify design exists and belongs to user
+    const design = await NetworkDesign.findOne({
+      _id: designId,
+      userId: req.user._id,
+    }).session(session);
+
+    if (!design) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or access denied",
+      });
+    }
+
+    // Validate and prepare equipment assignments
+    const equipmentAssignments = [];
+    const equipmentIds = [];
+
+    for (const item of equipment) {
+      if (!item.equipmentId) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          error: "Each equipment item must have an equipmentId",
+        });
+      }
+
+      // Updated ObjectId creation syntax
+      const equipmentId = new mongoose.Types.ObjectId(item.equipmentId);
+      equipmentIds.push(equipmentId);
+      equipmentAssignments.push({
+        equipmentId: equipmentId,
+        quantity:
+          item.quantity && Number.isInteger(item.quantity) ? item.quantity : 1,
+      });
+    }
+
+    // Verify all equipment exists
+    const equipmentItems = await Equipment.find({
+      _id: { $in: equipmentIds },
+      $or: [{ isPublic: true }, { createdBy: req.user._id }],
+    }).session(session);
+
+    if (equipmentItems.length !== equipmentIds.length) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        error: "One or more equipment items not found or access denied",
+      });
+    }
+
+    // Convert existing assignments to Map for easier updates
+    const existingAssignments = new Map(
+      (design.devices || []).map((item) => [item.equipmentId.toString(), item])
+    );
+
+    // Update or add new assignments
+    for (const newItem of equipmentAssignments) {
+      const equipmentIdStr = newItem.equipmentId.toString();
+      if (existingAssignments.has(equipmentIdStr)) {
+        // Update quantity if exists
+        existingAssignments.get(equipmentIdStr).quantity = newItem.quantity;
+      } else {
+        // Add new assignment
+        existingAssignments.set(equipmentIdStr, newItem);
+      }
+    }
+
+    // Convert back to array
+    const updatedAssignments = Array.from(existingAssignments.values());
+
+    // Update design
+    const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+      designId,
+      {
+        $set: {
+          devices: updatedAssignments,
+          lastModified: new Date(),
+        },
+      },
+      { new: true, session }
+    ).populate({
+      path: "devices.equipmentId",
+      model: "Equipment",
+    });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: `${equipmentAssignments.length} equipment item(s) assigned/updated in design`,
+      data: updatedDesign,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Assign equipment error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to assign equipment to design",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * @desc    Remove equipment from a network design
+ * @route   DELETE /api/equipment/remove-from-design
+ * @access  Private
+ */
+
+//Remove equipment from the design.
+/*
+const removeEquipmentFromDesign = asyncHandler(async (req, res) => {
+  const { designId, equipmentIds } = req.body;
+
+  // Validate input
+  if (!designId || !equipmentIds || !Array.isArray(equipmentIds)) {
+    return res.status(400).json({
+      success: false,
+      error: "Design ID and equipment IDs array are required",
+    });
+  }
+
+  // Remove equipment from design
+  const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+    designId,
+    {
+      $pull: {
+        devices: { equipmentId: { $in: equipmentIds } },
+      },
+      $set: { lastModified: new Date() },
+    },
+    { new: true }
+  ).populate({
+    path: "devices.equipmentId",
+    model: "Equipment",
+  });
+
+  if (!updatedDesign) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or access denied",
+    });
+  }
+
+  res.json({
+    success: true,
+    message: `${equipmentIds.length} equipment item(s) removed from design`,
+    data: updatedDesign,
+  });
+});
+*/
+
+const removeEquipmentFromDesign = asyncHandler(async (req, res) => {
+  const { designId, equipmentIds } = req.body;
+
+  // Validate input
+  if (!designId || !equipmentIds || !Array.isArray(equipmentIds)) {
+    return res.status(400).json({
+      success: false,
+      error: "Design ID and equipment IDs array are required",
+    });
+  }
+
+  // Convert string IDs to ObjectIds
+  const objectIds = equipmentIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+    designId,
+    {
+      $pull: {
+        devices: { equipmentId: { $in: objectIds } },
+      },
+      $set: { lastModified: new Date() },
+    },
+    { new: true }
+  ).populate({
+    path: "devices.equipmentId",
+    model: "Equipment",
+  });
+
+  if (!updatedDesign) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or access denied",
+    });
+  }
+
+  // Return the remaining devices
+  const remainingDevices = updatedDesign.devices.map((device) => ({
+    ...device.equipmentId._doc,
+    id: device.equipmentId._id,
+    quantity: device.quantity,
+  }));
+
+  res.json({
+    success: true,
+    message: `${equipmentIds.length} equipment item(s) removed from design`,
+    data: remainingDevices,
+  });
+});
+
+/**
+ * @desc    Get equipment assigned to a design
+ * @route   GET /api/equipment/design/:designId
+ * @access  Private
+ */
+/*
+const getDesignEquipment = asyncHandler(async (req, res) => {
+  try {
+    const design = await NetworkDesign.findOne({
+      _id: req.params.designId,
+      userId: req.user._id,
+    }).populate({
+      path: "devices",
+      select: "category manufacturer model specs imageUrl",
+    });
+
+    if (!design) {
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or access denied",
+      });
+    }
+
+    res.json({
+      success: true,
+      count: design.devices.length,
+      data: design.devices,
+    });
+  } catch (error) {
+    console.error("Get design equipment error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get design equipment",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+*/
+
+const getDesignEquipment = asyncHandler(async (req, res) => {
+  try {
+    const design = await NetworkDesign.findOne({
+      _id: req.params.designId,
+      userId: req.user._id,
+    }).populate({
+      path: "devices.equipmentId",
+      model: "Equipment",
+      select: "category manufacturer model specs imageUrl quantity",
+    });
+
+    if (!design) {
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or access denied",
+      });
+    }
+
+    // Transform the data to flatten the equipmentId references
+    const devices = design.devices.map((device) => ({
+      ...device.equipmentId._doc, // Spread the equipment document
+      id: device.equipmentId._id,
+      quantity: device.quantity,
+    }));
+
+    res.json({
+      success: true,
+      count: devices.length,
+      data: devices,
+    });
+  } catch (error) {
+    console.error("Get design equipment error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get design equipment",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
 module.exports = {
   createEquipment,
   createSystemEquipment,
@@ -1070,4 +1475,7 @@ module.exports = {
   getEquipmentRecommendations,
   getEquipmentByCategory,
   getSimilarEquipment,
+  assignEquipmentToDesign,
+  removeEquipmentFromDesign,
+  getDesignEquipment,
 };

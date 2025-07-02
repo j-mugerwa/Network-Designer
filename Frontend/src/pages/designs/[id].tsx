@@ -7,6 +7,7 @@ import {
   setCurrentDesign,
 } from "@/store/slices/networkDesignSlice";
 import { DesignView } from "@/components/features/designs/DesignView";
+import { AppLayout } from "@/components/layout/AppLayout";
 
 const DesignPage = () => {
   const router = useRouter();
@@ -29,7 +30,11 @@ const DesignPage = () => {
   if (error) return <div>Error: {error}</div>;
   if (!currentDesign) return <div>Design not found</div>;
 
-  return <DesignView design={currentDesign} />;
+  return (
+    <AppLayout title="View Design">
+      <DesignView design={currentDesign} />
+    </AppLayout>
+  );
 };
 
 export default DesignPage;

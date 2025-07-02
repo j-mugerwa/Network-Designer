@@ -309,62 +309,6 @@ export const CreateDesignForm = ({
       };
 
       if (isEditMode && initialData?.id) {
-        // Update existing design
-        const resultAction = await dispatch(
-          updateDesign({
-            id: initialData.id,
-            designData: payload,
-          })
-        );
-
-        if (updateDesign.fulfilled.match(resultAction)) {
-          const designId = resultAction.payload.id;
-          onSuccess?.(designId);
-          router.push(`/designs/${designId}`);
-        }
-      } else {
-        // Create new design
-        const resultAction = await dispatch(createDesign(payload));
-
-        if (createDesign.fulfilled.match(resultAction)) {
-          const designId = resultAction.payload.id;
-          onSuccess?.(designId);
-          router.push(`/designs/${designId}`);
-        }
-      }
-    } catch (err: any) {
-      console.error("Failed to save design:", err);
-      setError(err.message || "Failed to save design. Please try again.");
-      setSnackbarOpen(true);
-    }
-  };
-  */
-
-  /*
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.designName.trim()) {
-      setError("Design name is required");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    try {
-      const payload: CreateDesignPayload = {
-        ...formData,
-        existingNetworkDetails: formData.isExistingNetwork
-          ? {
-              ...formData.existingNetworkDetails,
-              currentTopology:
-                formData.existingNetworkDetails?.currentTopology || undefined,
-              currentIssues:
-                formData.existingNetworkDetails?.currentIssues || [],
-            }
-          : undefined,
-      };
-
-      if (isEditMode && initialData?.id) {
         const result = await dispatch(
           updateDesign({
             id: initialData.id,

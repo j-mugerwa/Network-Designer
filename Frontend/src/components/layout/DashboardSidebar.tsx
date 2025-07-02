@@ -98,6 +98,7 @@ const DashboardSidebar = () => {
         { name: "Show My Devices", path: "/devices" },
         { name: "Create Custom Device", path: "/devices/create" },
         { name: "Propose To Me", path: "/devices/propose" },
+        { name: "Assign To Design", path: "/devices/assign-devices" },
       ],
     },
     {

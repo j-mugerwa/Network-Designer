@@ -37,13 +37,6 @@ const EquipmentPage = () => {
           subtitle="View and manage your network devices"
         />
 
-        {/*
-        {error && (
-          <Alert severity="error" onClose={handleClearError} className="mb-4" />
-        )}
-
-        */}
-
         {error && (
           <Alert severity="error" onClose={handleClearError} className="mb-4">
             {typeof error === "string" ? error : "Failed to load equipment"}

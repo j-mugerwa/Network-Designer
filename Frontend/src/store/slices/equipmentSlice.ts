@@ -2,51 +2,21 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import axios from "@/lib/api/client";
 import { RootState } from "@/store/store";
-import { Equipment, EquipmentSpecs } from "@/types/equipment";
+//import { Equipment, EquipmentSpecs } from "@/types/equipment";
+import {
+  Equipment,
+  EquipmentState,
+  UserEquipmentResponse,
+  RecommendationItem,
+  EquipmentRecommendation,
+  EquipmentAssignment,
+  DesignEquipmentAssignment,
+  DesignEquipmentResponse,
+} from "@/types/equipment";
 
-interface UserEquipmentResponse {
-  success: boolean;
-  count: number;
-  total: number;
-  page: number;
-  pages: number;
-  data: Equipment[];
-}
-
-interface RecommendationItem {
-  category: string;
-  recommendedEquipment: Equipment;
-  quantity: number;
-  placement: string;
-  justification: string;
-  alternatives: Equipment[];
-  isSystemRecommended: boolean;
-}
-
-interface EquipmentRecommendation {
-  id: string;
+interface RemoveEquipmentFromDesignPayload {
   designId: string;
-  userId: string;
-  recommendations: RecommendationItem[];
-  generatedAt: string;
-  isActive: boolean;
-  version: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface EquipmentState {
-  equipment: Equipment[];
-  userEquipment: Equipment[];
-  systemEquipment: Equipment[];
-  recommendations: EquipmentRecommendation[];
-  loading: boolean;
-  error: string | null;
-  currentRecommendation: EquipmentRecommendation | null;
-  creating: boolean;
-  updating: boolean;
-  deleting: boolean;
-  uploadingImage: boolean;
+  equipmentIds: string[]; // Just IDs for removal
 }
 
 const initialState: EquipmentState = {
@@ -61,6 +31,9 @@ const initialState: EquipmentState = {
   updating: false,
   deleting: false,
   uploadingImage: false,
+  designEquipment: [],
+  assigningToDesign: false,
+  removingFromDesign: false,
 };
 
 // Thunks
@@ -173,23 +146,6 @@ export const updateEquipmentDetails = createAsyncThunk<
   }
 });
 
-/*
-export const getEquipmentRecommendations = createAsyncThunk<
-  EquipmentRecommendation,
-  string,
-  { rejectValue: string }
->("equipment/recommendations", async (designId, { rejectWithValue }) => {
-  try {
-    const response = await axios.get(`/equipment/recommendations/${designId}`);
-    return response.data.data;
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to get recommendations"
-    );
-  }
-});
-*/
-
 export const getEquipmentRecommendations = createAsyncThunk<
   EquipmentRecommendation,
   string,
@@ -269,6 +225,88 @@ export const fetchEquipmentById = createAsyncThunk<
   } catch (error: any) {
     return rejectWithValue(
       error.response?.data?.error || "Failed to fetch equipment"
+    );
+  }
+});
+
+//Assign equipment to a design:
+export const assignEquipmentToDesign = createAsyncThunk<
+  DesignEquipmentResponse,
+  DesignEquipmentAssignment,
+  { rejectValue: string }
+>(
+  "equipment/assignToDesign",
+  async ({ designId, equipment }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post("/equipment/assign-to-design", {
+        designId,
+        equipment,
+      });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to assign equipment to design"
+      );
+    }
+  }
+);
+
+//Remove Equipment from design:
+
+export const removeEquipmentFromDesign = createAsyncThunk<
+  DesignEquipmentResponse,
+  RemoveEquipmentFromDesignPayload,
+  { rejectValue: string }
+>(
+  "equipment/removeFromDesign",
+  async ({ designId, equipmentIds }, { rejectWithValue }) => {
+    try {
+      const response = await axios.delete("/equipment/remove-from-design", {
+        data: { designId, equipmentIds },
+      });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to remove equipment from design"
+      );
+    }
+  }
+);
+
+//Fetch equipment for a design:
+/*
+export const fetchDesignEquipment = createAsyncThunk<
+  Equipment[],
+  string,
+  { rejectValue: string }
+>("equipment/fetchDesignEquipment", async (designId, { rejectWithValue }) => {
+  try {
+    const response = await axios.get(`/equipment/design/${designId}`);
+    return response.data.data;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to fetch design equipment"
+    );
+  }
+});
+*/
+
+export const fetchDesignEquipment = createAsyncThunk<
+  Equipment[],
+  string,
+  { rejectValue: string }
+>("equipment/fetchDesignEquipment", async (designId, { rejectWithValue }) => {
+  try {
+    const response = await axios.get(`/equipment/design/${designId}`);
+    // Ensure each device has an id field
+    const devices = response.data.data.map((device: any) => ({
+      ...device,
+      id: device.id || device._id, // Handle both id and _id cases
+    }));
+    return devices;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to fetch design equipment"
     );
   }
 });
@@ -478,6 +516,60 @@ const equipmentSlice = createSlice({
       .addCase(fetchEquipmentById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to fetch equipment";
+      })
+      // Assign equipment to design
+      .addCase(assignEquipmentToDesign.pending, (state) => {
+        state.assigningToDesign = true;
+        state.error = null;
+      })
+      .addCase(assignEquipmentToDesign.fulfilled, (state, action) => {
+        state.assigningToDesign = false;
+        // Merge new devices with existing ones, avoiding duplicates
+        const newDevices = action.payload.data.devices || [];
+        const existingDeviceIds = state.designEquipment.map((d) => d.id);
+
+        state.designEquipment = [
+          ...state.designEquipment,
+          ...newDevices.filter(
+            (device: Equipment) => !existingDeviceIds.includes(device.id)
+          ),
+        ];
+      })
+      .addCase(assignEquipmentToDesign.rejected, (state, action) => {
+        state.assigningToDesign = false;
+        state.error = action.payload || "Failed to assign equipment to design";
+      })
+
+      // Remove equipment from design
+      .addCase(removeEquipmentFromDesign.pending, (state) => {
+        state.removingFromDesign = true;
+        state.error = null;
+      })
+      .addCase(removeEquipmentFromDesign.fulfilled, (state, action) => {
+        state.removingFromDesign = false;
+        const removedIds = action.meta.arg.equipmentIds;
+        state.designEquipment = state.designEquipment.filter(
+          (eq) => !removedIds.includes(eq.id)
+        );
+      })
+      .addCase(removeEquipmentFromDesign.rejected, (state, action) => {
+        state.removingFromDesign = false;
+        state.error =
+          action.payload || "Failed to remove equipment from design";
+      })
+
+      // Fetch design equipment
+      .addCase(fetchDesignEquipment.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchDesignEquipment.fulfilled, (state, action) => {
+        state.loading = false;
+        state.designEquipment = action.payload;
+      })
+      .addCase(fetchDesignEquipment.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch design equipment";
       });
   },
 });
@@ -513,4 +605,11 @@ export const selectEquipmentByCategory =
     state.equipment.equipment.filter(
       (item: Equipment) => item.category === category
     );
+
+export const selectDesignEquipment = (state: RootState) =>
+  state.equipment.designEquipment;
+export const selectAssigningToDesign = (state: RootState) =>
+  state.equipment.assigningToDesign;
+export const selectRemovingFromDesign = (state: RootState) =>
+  state.equipment.removingFromDesign;
 export default equipmentSlice.reducer;
