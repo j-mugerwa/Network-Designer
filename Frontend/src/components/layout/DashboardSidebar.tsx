@@ -74,17 +74,7 @@ const DashboardSidebar = () => {
       ],
     },
     {
-      name: "Teams",
-      icon: <TeamIcon />,
-      subItems: [
-        { name: "Show Teams", path: "/teams" },
-        { name: "Create Team", path: "/teams/create" },
-        { name: "Invite Individual", path: "/teams/invite" },
-        { name: "Show Individuals", path: "/teams/individuals" },
-      ],
-    },
-    {
-      name: "Reports",
+      name: "Design Reports",
       icon: <ReportIcon />,
       subItems: [
         { name: "Show Reports", path: "/reports" },
@@ -102,19 +92,30 @@ const DashboardSidebar = () => {
       ],
     },
     {
+      name: "Configurations",
+      icon: <ConfigIcon />,
+      subItems: [
+        { name: "Show Configs", path: "/configs" },
+        { name: "Create Configuration", path: "/configs/new" },
+        { name: "Assign To Device", path: "/configs/deploy" },
+      ],
+    },
+    {
+      name: "Teams",
+      icon: <TeamIcon />,
+      subItems: [
+        { name: "Show Teams", path: "/teams" },
+        { name: "Create Team", path: "/teams/create" },
+        { name: "Invite Individual", path: "/teams/invite" },
+        { name: "Show Individuals", path: "/teams/individuals" },
+      ],
+    },
+    {
       name: "Notifications",
       icon: <NotificationIcon />,
       subItems: [
         { name: "Send Notification", path: "/notifications/send" },
         { name: "Sent Notifications", path: "/notifications" },
-      ],
-    },
-    {
-      name: "Configurations",
-      icon: <ConfigIcon />,
-      subItems: [
-        { name: "Show Configs", path: "/configs" },
-        { name: "Create Configuration", path: "/configs/create" },
       ],
     },
     {
@@ -133,6 +134,11 @@ const DashboardSidebar = () => {
         { name: "Create A Role", path: "/roles/create" },
         { name: "Assign Roles", path: "/roles/assign" },
       ],
+    },
+    {
+      name: "Other Reports",
+      icon: <ReportIcon />,
+      path: "/reports",
     },
   ];
 

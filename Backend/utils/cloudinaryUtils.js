@@ -20,24 +20,45 @@ const cloudinaryConfig = {
 cloudinary.config(cloudinaryConfig);
 
 /**
- * Uploads a file to Cloudinary
+ * Uploads a file to Cloudinary with enhanced configuration support
  * @param {string} filePath - Path to the local file
- * @param {string} folder - Cloudinary folder (default: 'equipment')
- * @returns {Promise<string>} - Secure URL of the uploaded file
+ * @param {object} options - Upload options
+ * @param {string} options.folder - Cloudinary folder (default: 'equipment')
+ * @param {string} options.resourceType - 'image', 'raw', 'auto' (default: 'auto')
+ * @param {boolean} options.overwrite - Whether to overwrite existing (default: true)
+ * @returns {Promise<object>} - Cloudinary upload result with secure_url and public_id
  */
-const uploadToCloudinary = async (filePath, folder = "equipment") => {
+const uploadToCloudinary = async (filePath, options = {}) => {
+  const {
+    folder = "equipment",
+    resourceType = "auto",
+    overwrite = true,
+  } = options;
+
   try {
     // Ensure the file exists
     if (!fs.existsSync(filePath)) {
       throw new Error("File not found");
     }
 
-    // Get file extension
+    // Get file extension and type
     const ext = path.extname(filePath).toLowerCase();
-    const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+    const isImage = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext);
+    const isConfigFile = [
+      ".txt",
+      ".json",
+      ".yaml",
+      ".yml",
+      ".conf",
+      ".cfg",
+    ].includes(ext);
 
-    if (!allowedExtensions.includes(ext)) {
-      throw new Error("Unsupported file type");
+    // Validate file type based on resource type
+    if (resourceType === "image" && !isImage) {
+      throw new Error("Unsupported image file type");
+    }
+    if (resourceType === "raw" && !isConfigFile) {
+      throw new Error("Unsupported configuration file type");
     }
 
     // Upload options
@@ -45,8 +66,8 @@ const uploadToCloudinary = async (filePath, folder = "equipment") => {
       folder: folder,
       use_filename: true,
       unique_filename: false,
-      overwrite: true,
-      resource_type: "auto",
+      overwrite: overwrite,
+      resource_type: resourceType,
     };
 
     // Upload the file
@@ -55,30 +76,54 @@ const uploadToCloudinary = async (filePath, folder = "equipment") => {
     // Clean up the temporary file
     fs.unlinkSync(filePath);
 
-    return result.secure_url;
+    return {
+      secure_url: result.secure_url,
+      public_id: result.public_id,
+      original_filename: result.original_filename,
+      format: result.format,
+      resource_type: result.resource_type,
+      bytes: result.bytes,
+    };
   } catch (error) {
     // Clean up the temporary file if it exists
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
     console.error("Cloudinary upload error:", error.message);
-    throw new Error(`Failed to upload image: ${error.message}`);
+    throw new Error(`Failed to upload file: ${error.message}`);
   }
 };
 
 /**
+ * Uploads a configuration file to Cloudinary
+ * @param {string} filePath - Path to the local file
+ * @param {string} folder - Cloudinary folder (default: 'configurations')
+ * @returns {Promise<object>} - Cloudinary upload result
+ */
+const uploadConfigToCloudinary = async (
+  filePath,
+  folder = "configurations"
+) => {
+  return uploadToCloudinary(filePath, {
+    folder: folder,
+    resourceType: "raw",
+  });
+};
+
+/**
  * Deletes a file from Cloudinary
- * @param {string} imageUrl - The Cloudinary URL of the image to delete
+ * @param {string} fileUrl - The Cloudinary URL of the file to delete
+ * @param {string} resourceType - 'image' or 'raw' (default: 'auto')
  * @returns {Promise<void>}
  */
-const deleteFromCloudinary = async (imageUrl) => {
+const deleteFromCloudinary = async (fileUrl, resourceType = "auto") => {
   try {
-    if (!imageUrl || typeof imageUrl !== "string") {
-      throw new Error("Invalid image URL");
+    if (!fileUrl || typeof fileUrl !== "string") {
+      throw new Error("Invalid file URL");
     }
 
     // Extract public ID from URL
-    const parts = imageUrl.split("/");
+    const parts = fileUrl.split("/");
     const publicIdWithExtension = parts[parts.length - 1];
     const publicId = publicIdWithExtension.split(".")[0];
     const folder = parts[parts.length - 2];
@@ -90,10 +135,12 @@ const deleteFromCloudinary = async (imageUrl) => {
     // Full public ID including folder
     const fullPublicId = folder ? `${folder}/${publicId}` : publicId;
 
-    await cloudinary.uploader.destroy(fullPublicId);
+    await cloudinary.uploader.destroy(fullPublicId, {
+      resource_type: resourceType,
+    });
   } catch (error) {
     console.error("Cloudinary delete error:", error.message);
-    throw new Error(`Failed to delete image: ${error.message}`);
+    throw new Error(`Failed to delete file: ${error.message}`);
   }
 };
 
@@ -105,17 +152,13 @@ const shouldUseCloudinary = () => {
   return process.env.USE_CLOUDINARY === "true";
 };
 
-const deleteLocalFile = (fileUrl) => {
+/**
+ * Deletes a local file
+ * @param {string} filePath - Path to the file to delete
+ * @returns {Promise<void>}
+ */
+const deleteLocalFile = (filePath) => {
   return new Promise((resolve, reject) => {
-    const fs = require("fs");
-    const path = require("path");
-    const filePath = path.join(
-      __dirname,
-      "..",
-      "uploads",
-      path.basename(fileUrl)
-    );
-
     if (fs.existsSync(filePath)) {
       fs.unlink(filePath, (err) => {
         if (err) reject(err);
@@ -129,6 +172,7 @@ const deleteLocalFile = (fileUrl) => {
 
 module.exports = {
   uploadToCloudinary,
+  uploadConfigToCloudinary,
   deleteFromCloudinary,
   shouldUseCloudinary,
   deleteLocalFile,

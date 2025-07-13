@@ -1,4 +1,4 @@
-// src/components/equipment/EquipmentTable.tsx
+// src/components/features/equipment/EquipmentTable.tsx
 import Link from "next/link";
 import { Equipment } from "@/types/equipment";
 import {

@@ -2,7 +2,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import axios from "@/lib/api/client";
 import { RootState } from "@/store/store";
-//import { Equipment, EquipmentSpecs } from "@/types/equipment";
 import {
   Equipment,
   EquipmentState,
@@ -274,22 +273,6 @@ export const removeEquipmentFromDesign = createAsyncThunk<
 );
 
 //Fetch equipment for a design:
-/*
-export const fetchDesignEquipment = createAsyncThunk<
-  Equipment[],
-  string,
-  { rejectValue: string }
->("equipment/fetchDesignEquipment", async (designId, { rejectWithValue }) => {
-  try {
-    const response = await axios.get(`/equipment/design/${designId}`);
-    return response.data.data;
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to fetch design equipment"
-    );
-  }
-});
-*/
 
 export const fetchDesignEquipment = createAsyncThunk<
   Equipment[],
@@ -360,7 +343,6 @@ const equipmentSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Failed to fetch user equipment";
       })
-
       // Fetch system equipment
       .addCase(fetchSystemEquipment.pending, (state) => {
         state.loading = true;

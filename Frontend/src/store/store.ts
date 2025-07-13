@@ -21,6 +21,7 @@ import designReducer from "@/store/slices/networkDesignSlice";
 import topologyReducer from "@/store/slices/networkTopologySlice";
 import networkReportReducer from "@/store/slices/networkReportSlice";
 import equipmentReducer from "@/store/slices/equipmentSlice";
+import configurationReducer from "@/store/slices/configurationSlice";
 import { Equipment } from "@/types/equipment";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 
@@ -65,6 +66,7 @@ const rootReducer = combineReducers({
   topology: topologyReducer,
   reports: networkReportReducer,
   equipment: equipmentReducer,
+  configuration: configurationReducer,
 });
 
 export const store = configureStore({
@@ -73,6 +75,10 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+      immutableCheck: {
+        warnAfter: 100, // Increase threshold
+        ignoredPaths: ["configuration.templates"], // Ignore large arrays
       },
     }),
   devTools: process.env.NODE_ENV !== "production",

@@ -1,45 +1,72 @@
 const multer = require("multer");
 const fs = require("fs");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
 
 // Define file storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = "uploads";
+    let uploadDir = "uploads";
+
+    // Create subdirectories based on file type
+    if (file.mimetype.startsWith("image/")) {
+      uploadDir = path.join(uploadDir, "images");
+    } else {
+      uploadDir = path.join(uploadDir, "configs");
+    }
+
+    // Ensure directory exists
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    cb(
-      null,
-      new Date().toISOString().replace(/:/g, "-") + "-" + file.originalname
-    );
+    const uniqueSuffix = uuidv4();
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${ext}`);
   },
 });
 
-// Specify file formats that can be saved
+// Supported file formats
+const supportedMimeTypes = [
+  // Images
+  "image/png",
+  "image/jpg",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+
+  // Configuration files
+  "text/plain",
+  "application/json",
+  "application/x-yaml",
+  "text/yaml",
+  "text/x-shellscript",
+  "application/xml",
+  "text/xml",
+  "text/csv",
+  "text/ini",
+  "text/x-python",
+];
+
+// File filter function
 function fileFilter(req, file, cb) {
-  if (
-    file.mimetype === "image/png" ||
-    file.mimetype === "image/jpg" ||
-    file.mimetype === "image/jpeg" ||
-    file.mimetype === "image/webp" ||
-    file.mimetype === "text/plain" || // for .txt
-    file.mimetype === "application/json" || // .json
-    file.mimetype === "application/x-yaml" ||
-    file.mimetype === "text/yaml" // .yaml
-  ) {
+  if (supportedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Unsupported file format"), false);
+    cb(new Error(`Unsupported file format: ${file.mimetype}`), false);
   }
 }
 
+// Configure multer upload
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1, // Single file upload
+  },
 });
 
 // File Size Formatter
@@ -55,4 +82,34 @@ const fileSizeFormatter = (bytes, decimal) => {
   );
 };
 
-module.exports = { upload, fileSizeFormatter };
+// Middleware to clean up uploaded files on error
+const cleanupUploads = (req, res, next) => {
+  // Attach cleanup function to request
+  req.cleanupUploads = async () => {
+    if (req.file) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch (err) {
+        console.error("Error cleaning up uploaded file:", err);
+      }
+    }
+  };
+
+  // Clean up on response finish
+  const originalSend = res.send;
+  res.send = function (...args) {
+    if (res.statusCode >= 400) {
+      req.cleanupUploads();
+    }
+    originalSend.apply(res, args);
+  };
+
+  next();
+};
+
+module.exports = {
+  upload,
+  fileSizeFormatter,
+  cleanupUploads,
+  supportedMimeTypes,
+};

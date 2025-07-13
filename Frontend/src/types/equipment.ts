@@ -27,6 +27,7 @@ export interface Equipment {
   createdBy: string;
   isSystemOwned: boolean;
   isPublic: boolean;
+  ipAddress: string;
   createdAt: string;
   updatedAt: string;
   quantity?: number;

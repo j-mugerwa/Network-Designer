@@ -122,6 +122,34 @@ const equipmentSchema = new mongoose.Schema(
       maintenanceInterval: Number, // in days
       maintenanceNotes: String,
     },
+    //Keep track of Config applications.
+    configurations: [
+      {
+        configTemplate: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "ConfigurationTemplate",
+          required: true,
+        },
+        appliedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        appliedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ["pending", "active", "failed", "rolled-back"],
+          default: "pending",
+        },
+        isCurrent: {
+          type: Boolean,
+          default: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
