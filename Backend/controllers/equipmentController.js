@@ -418,43 +418,7 @@ const getEquipment = asyncHandler(async (req, res) => {
   }
 });
 
-/*
-const getUserEquipment = asyncHandler(async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-
-    // Convert the string ID to ObjectId
-    const query = {
-      createdBy: mongoose.Types.ObjectId(req.user._id),
-    };
-
-    const equipment = await Equipment.find(query)
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 })
-      .populate("createdBy", "name email"); // Optional: populate user details
-
-    const total = await Equipment.countDocuments(query);
-
-    res.json({
-      success: true,
-      count: equipment.length,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-      data: equipment,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-*/
-
+//User Equipment
 const getUserEquipment = asyncHandler(async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;

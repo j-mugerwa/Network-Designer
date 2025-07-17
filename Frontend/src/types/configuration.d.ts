@@ -11,6 +11,11 @@ export interface Variable {
   scope: "global" | "device" | "interface";
 }
 
+export interface Compatibility {
+  osVersions?: string | string[];
+  firmwareVersions?: string | string[];
+}
+
 export interface ConfigFile {
   url: string;
   publicId: string;
@@ -30,6 +35,7 @@ export interface UserReference {
 export interface Deployment {
   _id: string;
   device: string;
+  template: string; //Just added this
   deployedBy: string;
   deployedAt: Date;
   variables?: Record<string, string>;
@@ -47,14 +53,16 @@ export interface Deployment {
 export type DeploymentStatus = "pending" | "active" | "failed" | "rolled-back";
 
 export interface ConfigurationTemplate {
-  //type: ReactNode;
   _id: string;
+  id?: string;
   name: string;
   description?: string;
   equipmentCategory: "switch" | "router" | "firewall" | "ap" | "server";
   specificDeviceModels?: string[];
+  compatibility?: Compatibility;
   configSourceType: "template" | "file";
   configFile?: ConfigFile;
+  description?: string;
   template?: string;
   variables: Variable[];
   vendor: string;

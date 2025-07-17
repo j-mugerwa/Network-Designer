@@ -325,7 +325,7 @@ const configTemplateSchema = new mongoose.Schema(
         status: {
           type: String,
           enum: ["pending", "active", "failed", "rolled-back"],
-          default: "pending",
+          default: "active",
         },
         variables: {
           type: Map,
@@ -491,6 +491,27 @@ configTemplateSchema.methods.isCompatibleWithDevice = function (device) {
     return false;
   }
 
+  /*
+  if (this.specificDeviceModels?.length > 0) {
+    const deviceModel = `${device.manufacturer} ${device.model}`;
+    return this.specificDeviceModels.some(
+      (model) => model.toLowerCase() === deviceModel.toLowerCase()
+    );
+  }
+    */
+
+  return true;
+};
+
+/*
+configurationTemplateSchema.methods.isCompatibleWithDevice = function (device) {
+  // Basic category check
+  if (this.equipmentCategory !== device.category) {
+    return false;
+  }
+
+  // Optional: Check specific device models if specified
+
   if (this.specificDeviceModels?.length > 0) {
     const deviceModel = `${device.manufacturer} ${device.model}`;
     return this.specificDeviceModels.some(
@@ -498,8 +519,10 @@ configTemplateSchema.methods.isCompatibleWithDevice = function (device) {
     );
   }
 
+
   return true;
 };
+*/
 
 configTemplateSchema.methods.renderTemplate = function (variables = {}) {
   if (this.configSourceType !== "template") {

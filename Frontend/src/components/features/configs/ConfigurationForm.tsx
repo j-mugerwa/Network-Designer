@@ -41,6 +41,21 @@ import CodeEditor from "@/components/ui/CodeEditor";
 import VariableForm from "@/components/features/configs/VariableForm";
 import { ConfigurationTemplate, Variable } from "@/types/configuration";
 
+/*
+interface ConfigurationFormProps {
+  onSubmit: (
+    data: ConfigurationTemplate | FormData,
+    files?: { configFile?: File }
+  ) => void;
+  initialData?: Partial<ConfigurationTemplate>;
+  loading?: boolean;
+  isEdit?: boolean;
+  readOnly?: boolean;
+  mode?: "create" | "edit" | "view";
+  templateId?: string;
+}
+*/
+
 interface ConfigurationFormProps {
   onSubmit: (
     data: ConfigurationTemplate,
@@ -131,9 +146,11 @@ const ConfigurationForm = ({
     }, template || "");
   };
 
+  /*
   const handleFormSubmit = (data: ConfigurationTemplate) => {
     clearErrors();
 
+    // Validate template content if using template source
     if (data.configSourceType === "template") {
       if (!data.template?.trim()) {
         setError("template", {
@@ -154,22 +171,79 @@ const ConfigurationForm = ({
         });
         return;
       }
-    } else if (
-      data.configSourceType === "file" &&
-      !configFile &&
-      !initialData?.configFile
-    ) {
-      setError("root", {
-        type: "manual",
-        message: "Configuration file is required",
-      });
-      return;
     }
 
-    onSubmit(
-      { ...data, isMajorVersion },
-      { configFile: configFile || undefined }
-    );
+    const formData = new FormData();
+
+    // Append all basic fields
+    Object.entries(data).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+
+      switch (key) {
+        case "variables":
+          formData.append(key, JSON.stringify(value));
+          break;
+        case "compatibility":
+          if (value.osVersions) {
+            formData.append(
+              "compatibility.osVersions",
+              value.osVersions.join(",")
+            );
+          }
+          if (value.firmwareVersions) {
+            formData.append(
+              "compatibility.firmwareVersions",
+              value.firmwareVersions.join(",")
+            );
+          }
+          break;
+        case "specificDeviceModels":
+          formData.append(key, value.join(","));
+          break;
+        case "isActive":
+        case "approvalRequired":
+        case "isMajorVersion":
+          formData.append(key, value.toString());
+          break;
+        default:
+          if (typeof value !== "object") {
+            formData.append(key, String(value));
+          }
+      }
+    });
+
+    // Submit the form data
+    onSubmit(formData, configFile ? { configFile } : undefined);
+  };
+  */
+
+  const handleFormSubmit = (data: ConfigurationTemplate) => {
+    clearErrors();
+
+    // Validation logic remains the same
+    if (data.configSourceType === "template") {
+      if (!data.template?.trim()) {
+        setError("template", {
+          type: "manual",
+          message: "Template content is required",
+        });
+        return;
+      }
+      const undefinedVars = checkUndefinedVariables(
+        data.template,
+        data.variables
+      );
+      if (undefinedVars.length > 0) {
+        setError("template", {
+          type: "manual",
+          message: `Undefined variables: ${undefinedVars.join(", ")}`,
+        });
+        return;
+      }
+    }
+
+    // Pass raw data to parent - let parent handle FormData conversion
+    onSubmit(data, configFile ? { configFile } : undefined);
   };
 
   const handleTabChange = (
@@ -201,8 +275,17 @@ const ConfigurationForm = ({
     remove(index);
   };
 
+  /*
   const handleTemplateChange = (value: string) => {
     setValue("template", value);
+  };
+  */
+
+  const handleTemplateChange = (value: string) => {
+    setValue("template", value);
+    if (value.trim()) {
+      clearErrors("template");
+    }
   };
 
   const handleFileChange = (file: File | null) => {

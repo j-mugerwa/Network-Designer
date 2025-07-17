@@ -34,6 +34,7 @@ router.post(
   cleanupUploads,
   deployConfiguration
 );
+
 router.get("/:id/file", downloadConfigFile);
 router.patch("/:templateId/deployments/:deploymentId", updateDeploymentStatus);
 

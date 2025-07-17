@@ -12,6 +12,7 @@ import {
   Toolbar,
   IconButton,
   Collapse,
+  Typography,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
@@ -97,7 +98,8 @@ const DashboardSidebar = () => {
       subItems: [
         { name: "Show Configs", path: "/configs" },
         { name: "Create Configuration", path: "/configs/new" },
-        { name: "Assign To Device", path: "/configs/deploy" },
+        { name: "Deploy To Device", path: "/configs/deploy" },
+        { name: "Deploy Reports", path: "/configs/deployments" },
       ],
     },
     {
@@ -157,6 +159,7 @@ const DashboardSidebar = () => {
       }}
     >
       <Toolbar sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <Typography>MENU</Typography>
         <IconButton onClick={toggleDrawer}>
           {open ? <ChevronLeft /> : <ChevronRight />}
         </IconButton>

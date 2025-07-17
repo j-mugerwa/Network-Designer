@@ -23,6 +23,13 @@ interface ConfigurationState {
   deploying: boolean;
   uploadingFile: boolean;
   currentTemplate: ConfigurationTemplate | null;
+  deploymentStatus: {
+    [templateId: string]: {
+      loading: boolean;
+      error: string | null;
+      lastDeployed?: string;
+    };
+  };
 }
 
 const initialState: ConfigurationState = {
@@ -36,6 +43,7 @@ const initialState: ConfigurationState = {
   deploying: false,
   uploadingFile: false,
   currentTemplate: null,
+  deploymentStatus: {},
 };
 
 // Thunks
@@ -129,6 +137,7 @@ export const fetchAllTemplatesAdmin = createAsyncThunk<
   }
 });
 
+/*
 export const fetchTemplateById = createAsyncThunk<
   ConfigurationTemplate,
   string,
@@ -143,6 +152,31 @@ export const fetchTemplateById = createAsyncThunk<
     );
   }
 });
+*/
+
+export const fetchTemplateById = createAsyncThunk<
+  ConfigurationTemplate,
+  string,
+  { rejectValue: string }
+>("configuration/fetchTemplateById", async (id, { rejectWithValue }) => {
+  try {
+    if (!id || !isValidObjectId(id)) {
+      throw new Error("Invalid template ID format");
+    }
+
+    const response = await axios.get(`/configs/${id}`);
+    return response.data.data;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to fetch configuration template"
+    );
+  }
+});
+
+//Helper function
+function isValidObjectId(id: string) {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
 
 export const updateConfigurationTemplate = createAsyncThunk<
   ConfigurationTemplate,
@@ -166,6 +200,7 @@ export const updateConfigurationTemplate = createAsyncThunk<
   }
 );
 
+/*
 export const deployConfiguration = createAsyncThunk<
   Deployment,
   {
@@ -175,30 +210,27 @@ export const deployConfiguration = createAsyncThunk<
     notes?: string;
     file?: File;
   },
-  { rejectValue: string }
+  { rejectValue: string; state: RootState }
 >(
   "configuration/deploy",
-  async (
-    { templateId, deviceId, variables, notes, file },
-    { rejectWithValue }
-  ) => {
+  async (deploymentData, { rejectWithValue, getState }) => {
     try {
+      const { templateId, deviceId, variables, notes, file } = deploymentData;
       const formData = new FormData();
+
+      formData.append("templateId", templateId);
       formData.append("deviceId", deviceId);
       if (variables) formData.append("variables", JSON.stringify(variables));
       if (notes) formData.append("notes", notes);
       if (file) formData.append("configFile", file);
 
-      const response = await axios.post(
-        `/configs/${templateId}/deploy`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      return response.data.data.deployment;
+      const response = await axios.post(`/configs/deploy`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(
         error.response?.data?.error || "Failed to deploy configuration"
@@ -206,6 +238,47 @@ export const deployConfiguration = createAsyncThunk<
     }
   }
 );
+*/
+
+export const deployConfiguration = createAsyncThunk<
+  Deployment,
+  {
+    templateId: string;
+    deviceId: string;
+    variables?: Record<string, string>;
+    notes?: string;
+    file?: File;
+  },
+  { rejectValue: string; state: RootState }
+>("configuration/deploy", async (deploymentData, { rejectWithValue }) => {
+  try {
+    const { templateId, deviceId, variables, notes, file } = deploymentData;
+    const formData = new FormData();
+
+    // Don't need to append templateId to formData since it's in the URL
+    formData.append("deviceId", deviceId);
+    if (variables) formData.append("variables", JSON.stringify(variables));
+    if (notes) formData.append("notes", notes);
+    if (file) formData.append("configFile", file);
+
+    // Endpoint that matches the route
+    const response = await axios.post(
+      `/configs/${templateId}/deploy`, // Matches the route
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    return response.data.data;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to deploy configuration"
+    );
+  }
+});
 
 export const fetchDeviceDeploymentHistory = createAsyncThunk<
   Deployment[],
@@ -323,6 +396,12 @@ const configurationSlice = createSlice({
     resetCurrentTemplate: (state) => {
       state.currentTemplate = null;
     },
+    setCurrentTemplate: (
+      state,
+      action: PayloadAction<ConfigurationTemplate>
+    ) => {
+      state.currentTemplate = action.payload;
+    },
     clearConfigurationState: (state) => {
       state.templates = [];
       state.deployments = [];
@@ -344,8 +423,9 @@ const configurationSlice = createSlice({
       })
       .addCase(createConfigurationTemplate.rejected, (state, action) => {
         state.creating = false;
-        state.error =
-          action.payload || "Failed to create configuration template";
+        state.error = action.payload?.includes("File upload failed")
+          ? "Invalid configuration file"
+          : action.payload || "Creation failed";
       })
 
       // Fetch all templates
@@ -431,6 +511,7 @@ const configurationSlice = createSlice({
       })
 
       // Deploy configuration
+      /*
       .addCase(deployConfiguration.pending, (state) => {
         state.deploying = true;
         state.error = null;
@@ -447,6 +528,43 @@ const configurationSlice = createSlice({
       .addCase(deployConfiguration.rejected, (state, action) => {
         state.deploying = false;
         state.error = action.payload || "Failed to deploy configuration";
+      })
+        */
+
+      .addCase(deployConfiguration.pending, (state, action) => {
+        const { templateId } = action.meta.arg;
+        state.deploymentStatus[templateId] = {
+          loading: true,
+          error: null,
+        };
+      })
+      .addCase(deployConfiguration.fulfilled, (state, action) => {
+        const { templateId } = action.meta.arg;
+        const deployment = action.payload;
+
+        state.deploymentStatus[templateId] = {
+          loading: false,
+          error: null,
+          lastDeployed: new Date().toISOString(),
+        };
+
+        // Update deployments list
+        state.deployments.unshift(deployment);
+
+        // Update template's deployments if it's the current template
+        if (state.currentTemplate?._id === templateId) {
+          if (!state.currentTemplate.deployments) {
+            state.currentTemplate.deployments = [];
+          }
+          state.currentTemplate.deployments.unshift(deployment);
+        }
+      })
+      .addCase(deployConfiguration.rejected, (state, action) => {
+        const { templateId } = action.meta.arg;
+        state.deploymentStatus[templateId] = {
+          loading: false,
+          error: action.payload || "Deployment failed",
+        };
       })
 
       // Fetch deployment history
@@ -573,5 +691,25 @@ export const selectUserTemplates = (userId: string) => (state: RootState) =>
 
 export const selectAdminTemplates = (state: RootState) =>
   state.configuration.templates;
+
+export const selectDeploymentStatus =
+  (templateId?: string) => (state: RootState) => {
+    return templateId
+      ? state.configuration.deploymentStatus[templateId] || {
+          loading: false,
+          error: null,
+        }
+      : {
+          loading: false,
+          error: null,
+        };
+  };
+
+export const selectLastDeployment =
+  (templateId: string) => (state: RootState) => {
+    return state.configuration.deployments.find(
+      (d) => d.template === templateId
+    );
+  };
 
 export default configurationSlice.reducer;

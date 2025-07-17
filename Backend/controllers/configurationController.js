@@ -1,7 +1,9 @@
 const asyncHandler = require("express-async-handler");
 const ConfigurationTemplate = require("../models/ConfigurationTemplateModel");
 const Equipment = require("../models/EquipmentModel");
+const mongoose = require("mongoose");
 const AppError = require("../utils/appError");
+const fs = require("fs");
 const {
   uploadToCloudinary,
   uploadConfigToCloudinary,
@@ -13,52 +15,134 @@ const { fileSizeFormatter } = require("../utils/fileUpload");
 // @desc    Create a new configuration template
 // @route   POST /api/config-templates
 // @access  Private (Admin/Editor)
+
+/*
 const createTemplate = asyncHandler(async (req, res, next) => {
-  const { configSourceType, variables, ...otherFields } = req.body;
+  try {
+    // Parse the JSON payload
+    const payload = JSON.parse(req.body.payload);
 
-  // Handle file upload if present
-  let configFile = null;
-  if (req.file && configSourceType === "file") {
-    try {
-      const uploadResult = await uploadConfigToCloudinary(req.file.path, {
-        folder: `config-templates/${req.user._id}`,
-      });
+    // Process the payload to match schema
+    const templateData = {
+      ...payload,
+      // Ensure compatibility exists and has proper array values
+      compatibility: payload.compatibility
+        ? {
+            osVersions: Array.isArray(payload.compatibility.osVersions)
+              ? payload.compatibility.osVersions
+              : [],
+            firmwareVersions: Array.isArray(
+              payload.compatibility.firmwareVersions
+            )
+              ? payload.compatibility.firmwareVersions
+              : [],
+          }
+        : { osVersions: [], firmwareVersions: [] },
+      // Process file if exists
+      configFile: req.file
+        ? {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            path: req.file.path,
+            size: req.file.size,
+            mimeType: req.file.mimetype,
+            uploadedBy: req.user._id,
+          }
+        : null,
+    };
 
-      configFile = {
-        url: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        originalName: req.file.originalname,
-        size: uploadResult.bytes,
-        mimeType: req.file.mimetype,
-        uploadedBy: req.user._id,
-      };
-    } catch (error) {
-      return next(new AppError(`File upload failed: ${error.message}`, 500));
+    // Create and validate the template
+    const configTemplate = await ConfigurationTemplate.create(templateData);
+
+    // Cleanup if needed
+    if (req.file) {
+      await fs.promises.unlink(req.file.path).catch(console.error);
     }
-  }
 
-  // For template-based configs, validate variables
-  if (configSourceType === "template") {
-    if (!variables || variables.length === 0) {
+    res.status(201).json({
+      status: "success",
+      data: configTemplate,
+    });
+  } catch (error) {
+    // Enhanced error handling
+    if (error instanceof mongoose.Error.ValidationError) {
+      const messages = Object.values(error.errors).map((err) => err.message);
       return next(
-        new AppError("Template-based configurations require variables", 400)
+        new AppError(`Validation failed: ${messages.join(", ")}`, 400)
       );
     }
+    next(error);
   }
+});
+*/
 
-  const configTemplate = await ConfigurationTemplate.create({
-    ...otherFields,
-    configSourceType: configSourceType || "template",
-    variables,
-    configFile,
-    createdBy: req.user._id,
-    lastUpdatedBy: req.user._id,
-  });
+const createTemplate = asyncHandler(async (req, res, next) => {
+  try {
+    // 1. Parse the incoming data
+    if (!req.body.config) {
+      return next(new AppError("Missing configuration data", 400));
+    }
 
-  res.status(201).json({
-    status: "success",
-    data: configTemplate,
-  });
+    const configData = JSON.parse(req.body.config);
+
+    // 2. Prepare the database payload
+    const templateData = {
+      ...configData,
+      // Ensure compatibility exists with proper array format
+      compatibility: {
+        osVersions: Array.isArray(configData.compatibility?.osVersions)
+          ? configData.compatibility.osVersions
+          : [],
+        firmwareVersions: Array.isArray(
+          configData.compatibility?.firmwareVersions
+        )
+          ? configData.compatibility.firmwareVersions
+          : [],
+      },
+      // Handle file upload
+      configFile: req.file
+        ? {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            path: req.file.path,
+            size: req.file.size,
+            mimeType: req.file.mimetype,
+            uploadedBy: req.user._id,
+          }
+        : null,
+      // Add user information
+      createdBy: req.user._id,
+      lastUpdatedBy: req.user._id,
+    };
+
+    // 3. Create and validate the template
+    const configTemplate = await ConfigurationTemplate.create(templateData);
+
+    // 4. Cleanup temporary files if needed
+    if (req.file) {
+      await fs.promises.unlink(req.file.path).catch(console.error);
+    }
+
+    // 5. Return success response
+    res.status(201).json({
+      status: "success",
+      data: configTemplate,
+    });
+  } catch (error) {
+    // Enhanced error handling
+    if (error instanceof SyntaxError) {
+      return next(
+        new AppError("Invalid JSON format in configuration data", 400)
+      );
+    }
+    if (error instanceof mongoose.Error.ValidationError) {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return next(
+        new AppError(`Validation failed: ${messages.join(", ")}`, 400)
+      );
+    }
+    next(error);
+  }
 });
 
 // @desc    Get all configuration templates
@@ -223,12 +307,136 @@ const updateTemplate = asyncHandler(async (req, res, next) => {
 // @desc    Deploy configuration to device
 // @route   POST /api/config-templates/:id/deploy
 // @access  Private
+/*
 const deployConfiguration = asyncHandler(async (req, res, next) => {
   const { deviceId, variables, notes } = req.body;
+
+  // Parse variables if it's a string
+  if (typeof variables === "string") {
+    try {
+      variables = JSON.parse(variables);
+    } catch (err) {
+      return next(new AppError("Invalid variables format", 400));
+    }
+  }
 
   // Get template and device
   const template = await ConfigurationTemplate.findById(req.params.id);
   const device = await Equipment.findById(deviceId);
+
+  // Validate template ID
+  if (!req.params.id) {
+    return next(new AppError("Configuration template ID is required", 400));
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return next(new AppError("Invalid configuration template ID format", 400));
+  }
+
+  if (!template) {
+    return next(new AppError("Configuration template not found", 404));
+  }
+  if (!device) {
+    return next(new AppError("Device not found", 404));
+  }
+
+  // Check compatibility
+  if (!template.isCompatibleWithDevice(device)) {
+    return next(
+      new AppError("Configuration is not compatible with this device", 400)
+    );
+  }
+
+  // Handle file upload if this is a new file-based deployment
+  let fileDeployment = null;
+  if (req.file && template.configSourceType === "file") {
+    try {
+      const uploadResult = await uploadConfigToCloudinary(req.file.path, {
+        folder: `device-configs/${deviceId}`,
+      });
+
+      fileDeployment = {
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        originalName: req.file.originalname,
+        size: fileSizeFormatter(uploadResult.bytes),
+      };
+    } catch (error) {
+      return next(
+        new AppError(`Configuration file upload failed: ${error.message}`, 500)
+      );
+    }
+  }
+
+  // Validate variables if template-based
+  let renderedConfig = null;
+  if (template.configSourceType === "template") {
+    const validationErrors = template.validateVariables(variables || {});
+    if (validationErrors) {
+      return next(new AppError(validationErrors.join(", "), 400));
+    }
+    renderedConfig = template.renderTemplate(variables);
+  }
+
+  // Add deployment record
+  const deployment = {
+    device: deviceId,
+    deployedBy: req.user._id,
+    variables,
+    renderedConfig,
+    fileDeployment,
+    notes,
+  };
+
+  template.deployments.push(deployment);
+  await template.save();
+
+  // Update device's configurations
+  await Equipment.findByIdAndUpdate(deviceId, {
+    $push: {
+      configurations: {
+        configTemplate: template._id,
+        appliedAt: new Date(),
+        appliedBy: req.user._id,
+        status: "pending",
+      },
+    },
+  });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      message: "Configuration deployed successfully",
+      deployment,
+    },
+  });
+});
+*/
+
+const deployConfiguration = asyncHandler(async (req, res, next) => {
+  let { deviceId, variables, notes } = req.body; // Changed to 'let'
+
+  // Parse variables if it's a string
+  if (typeof variables === "string") {
+    try {
+      variables = JSON.parse(variables);
+    } catch (err) {
+      return next(new AppError("Invalid variables format", 400));
+    }
+  }
+
+  // Get template and device
+  const template = await ConfigurationTemplate.findById(req.params.id);
+  const device = await Equipment.findById(deviceId);
+
+  // Validate template ID
+  if (!req.params.id) {
+    return next(new AppError("Configuration template ID is required", 400));
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return next(new AppError("Invalid configuration template ID format", 400));
+  }
 
   if (!template) {
     return next(new AppError("Configuration template not found", 404));

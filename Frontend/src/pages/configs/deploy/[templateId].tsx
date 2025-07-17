@@ -1,24 +1,38 @@
-// src/pages/configs/deploy/[templateId].tsx
 import { useRouter } from "next/router";
-import { useDispatch, useSelector } from "react-redux";
-import type { AppDispatch } from "@/store/store";
+import { useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/store";
 import {
   deployConfiguration,
   selectTemplateDeploying as selectDeploymentLoading,
   selectTemplateError as selectDeploymentError,
   clearConfigurationError,
+  fetchTemplateById,
+  selectCurrentTemplate,
 } from "@/store/slices/configurationSlice";
 import DeploymentForm from "@/components/features/configs/DeploymentForm";
-import { Alert, CircularProgress, Box } from "@mui/material";
+import { Alert, CircularProgress, Box, Button } from "@mui/material";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 const DeployConfigurationPage = () => {
-  const dispatch = useDispatch<AppDispatch>();
+  const dispatch = useAppDispatch();
   const router = useRouter();
-  const deploying = useSelector(selectDeploymentLoading);
-  const error = useSelector(selectDeploymentError);
   const { templateId } = router.query;
+  const deploying = useAppSelector(selectDeploymentLoading);
+  const error = useAppSelector(selectDeploymentError);
+  const template = useAppSelector(selectCurrentTemplate);
+
+  useEffect(() => {
+    if (templateId) {
+      const id = Array.isArray(templateId) ? templateId[0] : templateId;
+      if (id) {
+        dispatch(fetchTemplateById(id));
+      } else {
+        console.error("Invalid template ID:", templateId);
+        router.push("/configs");
+      }
+    }
+  }, [templateId, dispatch, router]);
 
   const handleSubmit = async (data: {
     templateId: string;
@@ -34,9 +48,9 @@ const DeployConfigurationPage = () => {
           variables: data.variables,
           notes: data.notes,
         })
-      );
+      ).unwrap();
 
-      if (deployConfiguration.fulfilled.match(result)) {
+      if (result) {
         router.push("/deployments");
       }
     } catch (error) {
@@ -48,12 +62,24 @@ const DeployConfigurationPage = () => {
     dispatch(clearConfigurationError());
   };
 
+  const handleBack = () => {
+    router.push("/configs");
+  };
+
   return (
     <AppLayout title="Deploy Configuration">
       <Box sx={{ p: 4 }}>
+        <Box sx={{ mb: 2 }}>
+          <Button onClick={handleBack} variant="outlined">
+            Back to Configurations
+          </Button>
+        </Box>
+
         <PageHeader
-          title="Deploy Configuration"
-          subtitle="Deploy a configuration template to your network device"
+          title={`Deploy: ${template?.name || "Configuration"}`}
+          subtitle={
+            template?.description || "Deploy this configuration to a device"
+          }
         />
 
         {error && (
