@@ -7,6 +7,8 @@ const {
   getTemplates,
   getTemplate,
   getUserTemplates,
+  getDeploymentsByConfig,
+  getUserDeployments,
   getAllTemplatesAdmin,
   updateTemplate,
   deployConfiguration,
@@ -35,6 +37,8 @@ router.post(
   deployConfiguration
 );
 
+router.get("/deployments/by-config", getDeploymentsByConfig);
+router.get("/deployments/by-user", getUserDeployments);
 router.get("/:id/file", downloadConfigFile);
 router.patch("/:templateId/deployments/:deploymentId", updateDeploymentStatus);
 

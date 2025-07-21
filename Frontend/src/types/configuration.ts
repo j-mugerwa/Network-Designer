@@ -1,4 +1,4 @@
-// src/types/configuration.d.ts
+// src/types/configuration.ts
 export interface Variable {
   name: string;
   description: string;
@@ -10,6 +10,44 @@ export interface Variable {
   options?: string[];
   scope: "global" | "device" | "interface";
 }
+
+export interface ConfigDeployment {
+  _id: string;
+  name: string;
+  version: string;
+  configType: string;
+  vendor: string;
+  model: string;
+  createdBy: UserReference;
+  deploymentCount: number;
+  deployments: Deployment[];
+}
+
+export type PaginationData = {
+  //total: number;
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+};
+
+export interface DeploymentReportsState {
+  configDeployments: ConfigDeployment[];
+  userDeployments: ConfigDeployment[];
+  loading: boolean;
+  error: string | null;
+  pagination?: PaginationData;
+}
+
+/*
+interface DeploymentReportsState {
+  configDeployments: ConfigDeployment[];
+  userDeployments: ConfigDeployment[];
+  loading: boolean;
+  error: string | null;
+  pagination?: PaginationData;
+}
+  */
 
 export interface Compatibility {
   osVersions?: string | string[];
@@ -32,11 +70,24 @@ export interface UserReference {
   email?: string;
 }
 
-export interface Deployment {
+export interface Equipment {
   _id: string;
-  device: string;
-  template: string; //Just added this
-  deployedBy: string;
+  model: string;
+  ipAddress?: string;
+  category: string;
+  status: string;
+}
+
+export interface Deployment {
+  model: string;
+  vendor: string;
+  configType: string;
+  version: string;
+  name: string;
+  _id: string;
+  device: Equipment | string;
+  template: string | ConfigurationTemplate;
+  deployedBy: UserReference | string;
   deployedAt: Date;
   variables?: Record<string, string>;
   renderedConfig?: string;
@@ -47,7 +98,7 @@ export interface Deployment {
     size: string;
   };
   notes?: string;
-  status: "pending" | "active" | "failed" | "rolled-back";
+  status: DeploymentStatus;
 }
 
 export type DeploymentStatus = "pending" | "active" | "failed" | "rolled-back";
@@ -62,7 +113,6 @@ export interface ConfigurationTemplate {
   compatibility?: Compatibility;
   configSourceType: "template" | "file";
   configFile?: ConfigFile;
-  description?: string;
   template?: string;
   variables: Variable[];
   vendor: string;
@@ -71,10 +121,6 @@ export interface ConfigurationTemplate {
   version: string;
   isMajorVersion?: boolean;
   tags?: string[];
-  compatibility?: {
-    osVersions?: string[];
-    firmwareVersions?: string[];
-  };
   createdBy: string | UserReference;
   lastUpdatedBy?: string;
   createdAt: Date;
@@ -89,4 +135,12 @@ export interface ConfigurationTemplate {
     changedAt: Date;
   }>;
   deployments: Deployment[];
+}
+
+export function isPopulatedEquipment(device: any): device is Equipment {
+  return typeof device === "object" && "model" in device;
+}
+
+export function isPopulatedUser(user: any): user is UserReference {
+  return typeof user === "object" && "name" in user;
 }

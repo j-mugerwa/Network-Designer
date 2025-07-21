@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const ConfigurationTemplate = require("../models/ConfigurationTemplateModel");
 const Equipment = require("../models/EquipmentModel");
+const User = require("../models/UserModel");
 const mongoose = require("mongoose");
 const AppError = require("../utils/appError");
 const fs = require("fs");
@@ -307,111 +308,6 @@ const updateTemplate = asyncHandler(async (req, res, next) => {
 // @desc    Deploy configuration to device
 // @route   POST /api/config-templates/:id/deploy
 // @access  Private
-/*
-const deployConfiguration = asyncHandler(async (req, res, next) => {
-  const { deviceId, variables, notes } = req.body;
-
-  // Parse variables if it's a string
-  if (typeof variables === "string") {
-    try {
-      variables = JSON.parse(variables);
-    } catch (err) {
-      return next(new AppError("Invalid variables format", 400));
-    }
-  }
-
-  // Get template and device
-  const template = await ConfigurationTemplate.findById(req.params.id);
-  const device = await Equipment.findById(deviceId);
-
-  // Validate template ID
-  if (!req.params.id) {
-    return next(new AppError("Configuration template ID is required", 400));
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return next(new AppError("Invalid configuration template ID format", 400));
-  }
-
-  if (!template) {
-    return next(new AppError("Configuration template not found", 404));
-  }
-  if (!device) {
-    return next(new AppError("Device not found", 404));
-  }
-
-  // Check compatibility
-  if (!template.isCompatibleWithDevice(device)) {
-    return next(
-      new AppError("Configuration is not compatible with this device", 400)
-    );
-  }
-
-  // Handle file upload if this is a new file-based deployment
-  let fileDeployment = null;
-  if (req.file && template.configSourceType === "file") {
-    try {
-      const uploadResult = await uploadConfigToCloudinary(req.file.path, {
-        folder: `device-configs/${deviceId}`,
-      });
-
-      fileDeployment = {
-        url: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        originalName: req.file.originalname,
-        size: fileSizeFormatter(uploadResult.bytes),
-      };
-    } catch (error) {
-      return next(
-        new AppError(`Configuration file upload failed: ${error.message}`, 500)
-      );
-    }
-  }
-
-  // Validate variables if template-based
-  let renderedConfig = null;
-  if (template.configSourceType === "template") {
-    const validationErrors = template.validateVariables(variables || {});
-    if (validationErrors) {
-      return next(new AppError(validationErrors.join(", "), 400));
-    }
-    renderedConfig = template.renderTemplate(variables);
-  }
-
-  // Add deployment record
-  const deployment = {
-    device: deviceId,
-    deployedBy: req.user._id,
-    variables,
-    renderedConfig,
-    fileDeployment,
-    notes,
-  };
-
-  template.deployments.push(deployment);
-  await template.save();
-
-  // Update device's configurations
-  await Equipment.findByIdAndUpdate(deviceId, {
-    $push: {
-      configurations: {
-        configTemplate: template._id,
-        appliedAt: new Date(),
-        appliedBy: req.user._id,
-        status: "pending",
-      },
-    },
-  });
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      message: "Configuration deployed successfully",
-      deployment,
-    },
-  });
-});
-*/
 
 const deployConfiguration = asyncHandler(async (req, res, next) => {
   let { deviceId, variables, notes } = req.body; // Changed to 'let'
@@ -553,6 +449,194 @@ const getDeviceDeploymentHistory = asyncHandler(async (req, res, next) => {
     results: history.length,
     data: history,
   });
+});
+
+// Deployments by configurations. For all deployments.
+
+const getDeploymentsByConfig = asyncHandler(async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination
+    const totalCount = await ConfigurationTemplate.countDocuments({
+      "deployments.0": { $exists: true },
+    });
+
+    // Get configurations with deployments
+    const configs = await ConfigurationTemplate.find({
+      "deployments.0": { $exists: true },
+    })
+      .skip(skip)
+      .limit(limit)
+      .populate("createdBy", "name email")
+      .populate("deployments.device", "model ipAddress category")
+      .populate("deployments.deployedBy", "name email")
+      .lean();
+
+    // Transform the data to match frontend expectations
+    const transformedData = configs.map((config) => ({
+      _id: config._id,
+      name: config.name,
+      version: config.version,
+      configType: config.configType,
+      vendor: config.vendor,
+      model: config.model,
+      createdBy: config.createdBy,
+      deployments: config.deployments.slice(0, limit), // Limit deployments per config
+      deploymentCount: config.deployments.length,
+    }));
+
+    res.status(200).json({
+      status: "success",
+      data: transformedData,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error in getDeploymentsByConfig:", error);
+    next(new AppError("Failed to fetch configuration deployments", 500));
+  }
+});
+
+//For currently logged in user
+
+// @desc    Get deployments made by the current user
+// @route   GET /api/config-templates/deployments/by-user
+// @access  Private
+const getUserDeployments = asyncHandler(async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Convert user ID to ObjectId
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    // Get total count for pagination
+    const totalCount = await ConfigurationTemplate.countDocuments({
+      "deployments.deployedBy": userId,
+    });
+
+    // Get configurations with deployments by this user
+    const configs = await ConfigurationTemplate.aggregate([
+      {
+        $match: {
+          "deployments.deployedBy": userId,
+        },
+      },
+      {
+        $addFields: {
+          filteredDeployments: {
+            $filter: {
+              input: "$deployments",
+              as: "deployment",
+              cond: {
+                $eq: ["$$deployment.deployedBy", userId],
+              },
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          "filteredDeployments.0": { $exists: true },
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdBy",
+          foreignField: "_id",
+          as: "createdBy",
+        },
+      },
+      { $unwind: "$createdBy" },
+      {
+        $lookup: {
+          from: "equipment",
+          localField: "filteredDeployments.device",
+          foreignField: "_id",
+          as: "populatedDevices",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "filteredDeployments.deployedBy",
+          foreignField: "_id",
+          as: "populatedDeployedBy",
+        },
+      },
+      {
+        $addFields: {
+          deployments: {
+            $map: {
+              input: "$filteredDeployments",
+              as: "deployment",
+              in: {
+                $mergeObjects: [
+                  "$$deployment",
+                  {
+                    device: {
+                      $arrayElemAt: [
+                        "$populatedDevices",
+                        {
+                          $indexOfArray: [
+                            "$populatedDevices._id",
+                            "$$deployment.device",
+                          ],
+                        },
+                      ],
+                    },
+                    deployedBy: {
+                      $arrayElemAt: [
+                        "$populatedDeployedBy",
+                        {
+                          $indexOfArray: [
+                            "$populatedDeployedBy._id",
+                            "$$deployment.deployedBy",
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          filteredDeployments: 0,
+          populatedDevices: 0,
+          populatedDeployedBy: 0,
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      status: "success",
+      data: configs,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error in getUserDeployments:", error);
+    next(new AppError("Failed to fetch user deployments", 500));
+  }
 });
 
 // @desc    Delete configuration template
@@ -715,6 +799,8 @@ module.exports = {
   getTemplate,
   getUserTemplates,
   getAllTemplatesAdmin,
+  getDeploymentsByConfig,
+  getUserDeployments,
   updateTemplate,
   deployConfiguration,
   deleteTemplate,

@@ -10,6 +10,9 @@ import {
   Variable,
   ConfigFile,
   DeploymentStatus,
+  DeploymentReportsState,
+  ConfigDeployment,
+  PaginationData,
 } from "@/types/configuration";
 
 interface ConfigurationState {
@@ -30,6 +33,7 @@ interface ConfigurationState {
       lastDeployed?: string;
     };
   };
+  deploymentReports: DeploymentReportsState;
 }
 
 const initialState: ConfigurationState = {
@@ -44,6 +48,13 @@ const initialState: ConfigurationState = {
   uploadingFile: false,
   currentTemplate: null,
   deploymentStatus: {},
+  deploymentReports: {
+    configDeployments: [],
+    userDeployments: [],
+    loading: false,
+    error: null,
+    pagination: undefined,
+  },
 };
 
 // Thunks
@@ -66,23 +77,7 @@ export const createConfigurationTemplate = createAsyncThunk<
   }
 });
 
-/*
-export const fetchAllTemplates = createAsyncThunk<
-  ConfigurationTemplate[],
-  void,
-  { rejectValue: string }
->("configuration/fetchAllTemplates", async (_, { rejectWithValue }) => {
-  try {
-    const response = await axios.get("/configs/");
-    return response.data.data;
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to fetch configuration templates"
-    );
-  }
-});
-*/
-
+//All templates
 export const fetchAllTemplates = createAsyncThunk<
   ConfigurationTemplate[],
   void,
@@ -137,23 +132,7 @@ export const fetchAllTemplatesAdmin = createAsyncThunk<
   }
 });
 
-/*
-export const fetchTemplateById = createAsyncThunk<
-  ConfigurationTemplate,
-  string,
-  { rejectValue: string }
->("configuration/fetchTemplateById", async (id, { rejectWithValue }) => {
-  try {
-    const response = await axios.get(`/configs/${id}`);
-    return response.data.data;
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to fetch configuration template"
-    );
-  }
-});
-*/
-
+//Fetch template by id
 export const fetchTemplateById = createAsyncThunk<
   ConfigurationTemplate,
   string,
@@ -200,46 +179,7 @@ export const updateConfigurationTemplate = createAsyncThunk<
   }
 );
 
-/*
-export const deployConfiguration = createAsyncThunk<
-  Deployment,
-  {
-    templateId: string;
-    deviceId: string;
-    variables?: Record<string, string>;
-    notes?: string;
-    file?: File;
-  },
-  { rejectValue: string; state: RootState }
->(
-  "configuration/deploy",
-  async (deploymentData, { rejectWithValue, getState }) => {
-    try {
-      const { templateId, deviceId, variables, notes, file } = deploymentData;
-      const formData = new FormData();
-
-      formData.append("templateId", templateId);
-      formData.append("deviceId", deviceId);
-      if (variables) formData.append("variables", JSON.stringify(variables));
-      if (notes) formData.append("notes", notes);
-      if (file) formData.append("configFile", file);
-
-      const response = await axios.post(`/configs/deploy`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      return response.data.data;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.error || "Failed to deploy configuration"
-      );
-    }
-  }
-);
-*/
-
+//Deploy.
 export const deployConfiguration = createAsyncThunk<
   Deployment,
   {
@@ -280,6 +220,70 @@ export const deployConfiguration = createAsyncThunk<
   }
 });
 
+//Deployments by configurations. For All
+
+export const fetchConfigDeployments = createAsyncThunk<
+  { data: ConfigDeployment[]; pagination: PaginationData },
+  { page?: number; limit?: number; signal?: AbortSignal },
+  { rejectValue: string; state: RootState }
+>(
+  "configuration/fetchConfigDeployments",
+  async ({ page = 1, limit = 10, signal }, { rejectWithValue }) => {
+    try {
+      const response = await axios.get("/configs/deployments/by-config", {
+        params: { page, limit },
+        timeout: 10000,
+        signal,
+      });
+
+      return {
+        data: response.data.data,
+        pagination: response.data.pagination,
+      };
+    } catch (error: any) {
+      if (isCancel(error)) {
+        // Don't treat canceled requests as errors
+        console.log("Request was canceled");
+        throw error; // This will skip the rejectWithValue
+      }
+      return rejectWithValue(
+        error.response?.data?.error ||
+          "Failed to fetch configuration deployments"
+      );
+    }
+  }
+);
+
+//Config deployments fo the logged in user.
+
+export const fetchUserDeployments = createAsyncThunk<
+  { data: ConfigDeployment[]; pagination: PaginationData },
+  { page?: number; limit?: number; signal?: AbortSignal },
+  { rejectValue: string; state: RootState }
+>(
+  "configuration/fetchUserDeployments",
+  async ({ page = 1, limit = 10, signal }, { rejectWithValue }) => {
+    try {
+      const response = await axios.get("/configs/deployments/by-user", {
+        params: { page, limit },
+        signal,
+      });
+      return {
+        data: response.data.data,
+        pagination: response.data.pagination,
+      };
+    } catch (error: any) {
+      if (isCancel(error)) {
+        throw error;
+      }
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to fetch user deployments"
+      );
+    }
+  }
+);
+
+//Deployment History
 export const fetchDeviceDeploymentHistory = createAsyncThunk<
   Deployment[],
   string,
@@ -511,26 +515,6 @@ const configurationSlice = createSlice({
       })
 
       // Deploy configuration
-      /*
-      .addCase(deployConfiguration.pending, (state) => {
-        state.deploying = true;
-        state.error = null;
-      })
-      .addCase(deployConfiguration.fulfilled, (state, action) => {
-        state.deploying = false;
-        // Add to deployments array
-        state.deployments.unshift(action.payload);
-        // Update template's deployments if it's the current template
-        if (state.currentTemplate?._id === action.meta.arg.templateId) {
-          state.currentTemplate.deployments.unshift(action.payload);
-        }
-      })
-      .addCase(deployConfiguration.rejected, (state, action) => {
-        state.deploying = false;
-        state.error = action.payload || "Failed to deploy configuration";
-      })
-        */
-
       .addCase(deployConfiguration.pending, (state, action) => {
         const { templateId } = action.meta.arg;
         state.deploymentStatus[templateId] = {
@@ -645,6 +629,40 @@ const configurationSlice = createSlice({
         state.updating = false;
         state.error =
           action.payload || "Failed to delete configuration template";
+      })
+      //Fetch config deployments
+      .addCase(fetchConfigDeployments.pending, (state) => {
+        state.deploymentReports.loading = true;
+        state.deploymentReports.error = null;
+      })
+      .addCase(fetchConfigDeployments.fulfilled, (state, action) => {
+        state.deploymentReports.loading = false;
+        state.deploymentReports.configDeployments = action.payload.data;
+        state.deploymentReports.pagination = action.payload.pagination;
+      })
+      .addCase(fetchConfigDeployments.rejected, (state, action) => {
+        // Skip state updates for canceled requests
+        if (!isCancel(action.error)) {
+          state.deploymentReports.loading = false;
+          state.deploymentReports.error =
+            action.payload || "Failed to fetch deployments";
+        }
+      })
+      .addCase(fetchUserDeployments.pending, (state) => {
+        state.deploymentReports.loading = true;
+        state.deploymentReports.error = null;
+      })
+      .addCase(fetchUserDeployments.fulfilled, (state, action) => {
+        state.deploymentReports.loading = false;
+        state.deploymentReports.userDeployments = action.payload.data;
+        state.deploymentReports.pagination = action.payload.pagination;
+      })
+      .addCase(fetchUserDeployments.rejected, (state, action) => {
+        if (!isCancel(action.error)) {
+          state.deploymentReports.loading = false;
+          state.deploymentReports.error =
+            action.payload || "Failed to fetch user deployments";
+        }
       });
   },
 });
@@ -674,6 +692,9 @@ export const selectDeployments = (state: RootState) =>
   state.configuration.deployments;
 export const selectCompatibleTemplates = (state: RootState) =>
   state.configuration.compatibleTemplates;
+
+export const selectUserDeployments = (state: RootState) =>
+  state.configuration.deploymentReports.userDeployments;
 
 export const selectUserTemplates = (userId: string) => (state: RootState) =>
   state.configuration.templates.filter((template) => {
@@ -709,6 +730,36 @@ export const selectLastDeployment =
   (templateId: string) => (state: RootState) => {
     return state.configuration.deployments.find(
       (d) => d.template === templateId
+    );
+  };
+
+export const selectConfigDeployments = (state: RootState) =>
+  state.configuration.deploymentReports.configDeployments;
+
+export const selectConfigDeploymentsLoading = (state: RootState) =>
+  state.configuration.deploymentReports.loading;
+
+export const selectConfigDeploymentsError = (state: RootState) =>
+  state.configuration.deploymentReports.error;
+
+export const selectConfigDeploymentById =
+  (configId: string) => (state: RootState) =>
+    state.configuration.deploymentReports.configDeployments.find(
+      (config) => config._id === configId
+    );
+
+// Optional: Selector for deployments by status
+export const selectDeploymentsByStatus =
+  (status: DeploymentStatus) => (state: RootState) => {
+    return state.configuration.deploymentReports.configDeployments.flatMap(
+      (config) =>
+        config.deployments
+          .filter((deployment) => deployment.status === status)
+          .map((deployment) => ({
+            ...deployment,
+            configName: config.name,
+            configVersion: config.version,
+          }))
     );
   };
 
