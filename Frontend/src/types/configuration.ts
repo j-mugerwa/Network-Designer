@@ -104,6 +104,7 @@ export interface Deployment {
 export type DeploymentStatus = "pending" | "active" | "failed" | "rolled-back";
 
 export interface ConfigurationTemplate {
+  configContent: any;
   _id: string;
   id?: string;
   name: string;

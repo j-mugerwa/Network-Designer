@@ -221,7 +221,6 @@ export const deployConfiguration = createAsyncThunk<
 });
 
 //Deployments by configurations. For All
-
 export const fetchConfigDeployments = createAsyncThunk<
   { data: ConfigDeployment[]; pagination: PaginationData },
   { page?: number; limit?: number; signal?: AbortSignal },
@@ -319,6 +318,7 @@ export const deleteConfigurationTemplate = createAsyncThunk<
   }
 });
 
+/*
 export const downloadConfigurationFile = createAsyncThunk<
   void,
   string,
@@ -343,6 +343,268 @@ export const downloadConfigurationFile = createAsyncThunk<
     );
   }
 });
+*/
+
+/*
+export const downloadConfigurationFile = createAsyncThunk<
+  void,
+  { templateId: string; template: ConfigurationTemplate },
+  { rejectValue: string }
+>(
+  "configuration/downloadFile",
+  async ({ templateId, template }, { rejectWithValue }) => {
+    try {
+      // Check if template has a file
+      if (template.configSourceType === "file" && template.configFile) {
+        try {
+          // Try to download the file
+          const response = await axios.get(`/configs/${templateId}/file`, {
+            responseType: "blob",
+          });
+
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute(
+            "download",
+            template.configFile.originalName ||
+              `configuration-${template.name}.${getFileExtension(
+                template.configFile.mimeType
+              )}`
+          );
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          return;
+        } catch (error) {
+          console.error("File download failed, falling back to PDF", error);
+          // Fall through to PDF generation if file download fails
+        }
+      }
+
+      // Generate PDF for templates without files or if file download fails
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+
+      // PDF styling
+      const titleSize = 16;
+      const headerSize = 12;
+      const textSize = 10;
+      let yPosition = 20;
+
+      // Add title
+      doc.setFontSize(titleSize);
+      doc.text(`Configuration Template: ${template.name}`, 10, yPosition);
+      yPosition += 10;
+
+      // Add metadata
+      doc.setFontSize(headerSize);
+      doc.text("Metadata:", 10, yPosition);
+      yPosition += 7;
+
+      doc.setFontSize(textSize);
+      doc.text(`Type: ${template.configType}`, 15, yPosition);
+      yPosition += 7;
+      doc.text(`Description: ${template.description || "N/A"}`, 15, yPosition);
+      yPosition += 7;
+      doc.text(
+        `Created At: ${new Date(template.createdAt).toLocaleString()}`,
+        15,
+        yPosition
+      );
+      yPosition += 10;
+
+      // Add variables if they exist
+      if (template.variables?.length) {
+        doc.setFontSize(headerSize);
+        doc.text("Variables:", 10, yPosition);
+        yPosition += 7;
+
+        doc.setFontSize(textSize);
+        template.variables.forEach((variable) => {
+          doc.text(
+            `• ${variable.name}: ${variable.description || ""}`,
+            15,
+            yPosition
+          );
+          yPosition += 7;
+          doc.text(
+            `  Default: ${variable.defaultValue || "N/A"} ${
+              variable.example ? `(e.g. ${variable.example})` : ""
+            }`,
+            15,
+            yPosition
+          );
+          yPosition += 7;
+        });
+      }
+
+      // Add deployments info if available
+      if (template.deployments?.length) {
+        doc.setFontSize(headerSize);
+        doc.text("Deployments:", 10, yPosition);
+        yPosition += 7;
+
+        doc.setFontSize(textSize);
+        doc.text(
+          `Last deployed: ${
+            template.deployments[0]?.deployedAt
+              ? new Date(template.deployments[0].deployedAt).toLocaleString()
+              : "Never deployed"
+          }`,
+          15,
+          yPosition
+        );
+      }
+
+      // Save the PDF
+      doc.save(`configuration-${template.name}-${templateId}.pdf`);
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to download configuration"
+      );
+    }
+  }
+);
+*/
+
+// Helper to get file extension from mime type
+/*
+function getFileExtension(mimeType: string): string {
+  const extensions: Record<string, string> = {
+    "text/plain": "txt",
+    "application/json": "json",
+    "text/xml": "xml",
+    "application/xml": "xml",
+    "application/yaml": "yaml",
+    "text/yaml": "yaml",
+  };
+  return extensions[mimeType] || "txt";
+}
+  */
+
+export const downloadConfigurationFile = createAsyncThunk<
+  void,
+  { templateId: string; template: ConfigurationTemplate },
+  { rejectValue: string }
+>(
+  "configuration/downloadFile",
+  async ({ templateId, template }, { rejectWithValue }) => {
+    try {
+      // Check if template has a file
+      if (template.configSourceType === "file" && template.configFile) {
+        try {
+          // Try to download the file
+          const response = await axios.get(`/configs/${templateId}/file`, {
+            responseType: "blob",
+          });
+
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute(
+            "download",
+            template.configFile.originalName ||
+              `configuration-${template.name}.${getFileExtension(
+                template.configFile.mimeType
+              )}`
+          );
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          return;
+        } catch (error) {
+          console.error("File download failed, falling back to PDF", error);
+          // Fall through to PDF generation if file download fails
+        }
+      }
+
+      // Generate PDF for templates without files or if file download fails
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+
+      // PDF styling - using monospace font for configuration
+      const titleSize = 16;
+      const configSize = 10;
+      const lineHeight = 7;
+      let yPosition = 20;
+
+      // Add title
+      doc.setFontSize(titleSize);
+      doc.text(`Configuration Template: ${template.name}`, 10, yPosition);
+      yPosition += 10;
+
+      // Add configuration content in monospace format
+      doc.setFont("courier"); // Using monospace font
+      doc.setFontSize(configSize);
+
+      // Split the template content by lines and add to PDF
+      if (template.configContent) {
+        const lines = template.configContent.split("\n");
+        for (const line of lines) {
+          // Skip empty lines that are just whitespace
+          if (line.trim() === "") {
+            yPosition += lineHeight;
+            continue;
+          }
+
+          // Add line number if needed
+          // const lineNumber = lines.indexOf(line) + 1;
+          // doc.text(`${lineNumber} ${line}`, 10, yPosition);
+
+          // Or without line numbers (cleaner)
+          doc.text(line, 10, yPosition);
+          yPosition += lineHeight;
+
+          // Add page break if we're at the bottom
+          if (yPosition > doc.internal.pageSize.height - 20) {
+            doc.addPage();
+            yPosition = 20;
+          }
+        }
+      } else {
+        // Fallback if no configContent - use variables to generate basic template
+        doc.text(`hostname {{hostname}}`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(`!`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(`interface Vlan1`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(` ip address {{ip_address}} {{mask}}`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(`!`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(`line vty 0 4`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(` login local`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(` transport input ssh`, 10, yPosition);
+        yPosition += lineHeight;
+        doc.text(`!`, 10, yPosition);
+      }
+
+      // Save the PDF
+      doc.save(`configuration-${template.name}.pdf`);
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to download configuration"
+      );
+    }
+  }
+);
+
+// Helper to get file extension from mime type remains the same
+function getFileExtension(mimeType: string): string {
+  const extensions: Record<string, string> = {
+    "text/plain": "txt",
+    "application/json": "json",
+    "text/xml": "xml",
+    "application/xml": "xml",
+    "application/yaml": "yaml",
+    "text/yaml": "yaml",
+  };
+  return extensions[mimeType] || "txt";
+}
 
 export const fetchCompatibleTemplates = createAsyncThunk<
   ConfigurationTemplate[],
@@ -671,6 +933,7 @@ export const {
   clearConfigurationError,
   resetCurrentTemplate,
   clearConfigurationState,
+  setCurrentTemplate,
 } = configurationSlice.actions;
 
 // Selectors

@@ -40,6 +40,7 @@ import {
   selectTemplateError,
   clearConfigurationError,
   resetCurrentTemplate,
+  setCurrentTemplate,
 } from "@/store/slices/configurationSlice";
 import {
   fetchUserEquipment,
@@ -85,8 +86,6 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
   const loading = useAppSelector(selectTemplateLoading);
   const error = useAppSelector(selectTemplateError);
   const userDevices = useAppSelector(selectUserEquipment);
-  //const deploymentStatus = useAppSelector(selectDeploymentStatus(templateId));
-
   const deploymentStatus = useAppSelector(
     selectDeploymentStatus(templateId || undefined)
   );
@@ -98,6 +97,7 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
   const [compatibilityError, setCompatibilityError] = useState<string | null>(
     null
   );
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Form setup
   const {
@@ -145,7 +145,12 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
   }, [currentTemplate, selectedDeviceId, userDevices]);
 
   useEffect(() => {
-    if (templateId) {
+    dispatch(fetchUserEquipment());
+  }, [dispatch]);
+
+  // Initialize template and variables
+  useEffect(() => {
+    if (templateId && !initialLoadComplete) {
       const id = Array.isArray(templateId) ? templateId[0] : templateId;
       if (id) {
         const existingTemplate = availableTemplates.find(
@@ -153,28 +158,33 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
         );
 
         if (existingTemplate) {
-          dispatch({
-            type: "configuration/setCurrentTemplate",
-            payload: existingTemplate,
-          });
+          dispatch(setCurrentTemplate(existingTemplate));
           setValue("templateId", id);
+          initializeVariables(existingTemplate);
         } else {
-          dispatch(fetchTemplateById(id));
+          dispatch(fetchTemplateById(id))
+            .unwrap()
+            .then((template) => {
+              initializeVariables(template);
+            })
+            .catch((error) => {
+              console.error("Failed to load template:", error);
+              router.push("/configs");
+            });
         }
+        setInitialLoadComplete(true);
       }
-    } else {
+    } else if (!templateId && currentTemplate) {
       dispatch(resetCurrentTemplate());
+      setVariableValues({});
       setValue("templateId", "");
+      setInitialLoadComplete(true);
     }
-  }, [templateId, dispatch, setValue, availableTemplates]);
+  }, [templateId, availableTemplates, dispatch, setValue, router]);
 
-  useEffect(() => {
-    dispatch(fetchUserEquipment());
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (currentTemplate?.variables) {
-      const initialValues = currentTemplate.variables.reduce(
+  const initializeVariables = (template: ConfigurationTemplate) => {
+    if (template?.variables) {
+      const initialValues = template.variables.reduce(
         (acc, variable) => ({
           ...acc,
           [variable.name]: variable.defaultValue || "",
@@ -184,35 +194,7 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
       setVariableValues(initialValues);
       setValue("variables", initialValues);
     }
-  }, [currentTemplate, setValue]);
-
-  //Effect to handle the template loading state
-  useEffect(() => {
-    if (templateId && !currentTemplate) {
-      const id = Array.isArray(templateId) ? templateId[0] : templateId;
-      if (id) {
-        const existingTemplate = availableTemplates.find(
-          (t) => t._id === id || t.id === id
-        );
-
-        if (existingTemplate) {
-          dispatch({
-            type: "configuration/setCurrentTemplate",
-            payload: existingTemplate,
-          });
-          setValue("templateId", id);
-        } else {
-          // Show loading state while fetching
-          dispatch(fetchTemplateById(id))
-            .unwrap()
-            .catch((error) => {
-              console.error("Failed to load template:", error);
-              router.push("/configs"); // Redirect if loading fails
-            });
-        }
-      }
-    }
-  }, [templateId, dispatch, setValue, availableTemplates, router]);
+  };
 
   // Handlers
   const handleVariableChange = (name: string, value: string) => {
@@ -221,10 +203,21 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
     setValue("variables", newValues);
   };
 
+  const handleTemplateChange = (template: ConfigurationTemplate | null) => {
+    const templateId = template?._id || template?.id || "";
+    setValue("templateId", templateId);
+    if (template) {
+      dispatch(setCurrentTemplate(template));
+      initializeVariables(template);
+    } else {
+      dispatch(resetCurrentTemplate());
+      setVariableValues({});
+    }
+  };
+
   const handleDeploy: SubmitHandler<DeploymentFormData> = async (data) => {
     try {
       await onSubmit(data);
-      // Redirect after successful deployment
       router.push("/configs");
     } catch (error) {
       console.error("Deployment failed:", error);
@@ -305,6 +298,7 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
                     </Box>
                     <Divider sx={{ mb: 3 }} />
 
+                    {/* Configuration Template Autocomplete */}
                     <FormControl fullWidth>
                       <Controller
                         name="templateId"
@@ -315,16 +309,8 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
                             getOptionLabel={(option) => option.name}
                             value={displayedTemplate || null}
                             onChange={(_, value) => {
-                              const templateId = value?._id || value?.id || "";
-                              field.onChange(templateId);
-                              if (value) {
-                                dispatch({
-                                  type: "configuration/setCurrentTemplate",
-                                  payload: value,
-                                });
-                              } else {
-                                dispatch(resetCurrentTemplate());
-                              }
+                              handleTemplateChange(value);
+                              field.onChange(value?._id || value?.id || "");
                             }}
                             renderInput={(params) => (
                               <TextField
@@ -675,19 +661,7 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
                       >
                         Cancel
                       </Button>
-                      {/*
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        startIcon={<LinkIcon />}
-                        disabled={loading || !!compatibilityError}
-                        size="large"
-                        fullWidth={isMobile}
-                        sx={{ minWidth: 120 }}
-                      >
-                        {loading ? <CircularProgress size={24} /> : "Deploy"}
-                      </Button>
-                      */}
+
                       <Button
                         type="submit"
                         variant="contained"

@@ -12,7 +12,7 @@ import {
 } from "@/store/slices/configurationSlice";
 import type { AppDispatch } from "@/store/store";
 import ConfigurationForm from "@/components/features/configs/ConfigurationForm";
-import { Alert, CircularProgress, Box } from "@mui/material";
+import { Alert, CircularProgress, Box, Button, Paper } from "@mui/material";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AppLayout } from "@/components/layout/AppLayout";
 
@@ -34,33 +34,61 @@ const ConfigurationDetailPage: NextPage = () => {
     };
   }, [id, dispatch]);
 
+  /*
   const handleSubmit = async (data: any, files?: { configFile?: File }) => {
     if (!id) return;
 
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        if (key === "variables" || key === "compatibility") {
-          formData.append(key, JSON.stringify(value));
-        } else {
-          formData.append(key, value.toString());
-        }
-      }
-    });
-
-    if (files?.configFile) {
-      formData.append("file", files.configFile);
-    }
-
     try {
+      const formData = new FormData();
+      formData.append("config", JSON.stringify(data));
+
+      if (files?.configFile) {
+        formData.append("configFile", files.configFile);
+      }
+
       const result = await dispatch(
         updateConfigurationTemplate({
           id: id as string,
           formData,
         })
+      ).unwrap();
+
+      if (result) {
+        router.push(`/configs/${id}`);
+      }
+    } catch (error) {
+      console.error("Failed to update configuration:", error);
+    }
+  };
+  */
+
+  const handleSubmit = async (data: any, files?: { configFile?: File }) => {
+    if (!id) return;
+
+    try {
+      const formData = new FormData();
+      //formData.append("config", JSON.stringify(data));
+
+      formData.append(
+        "config",
+        JSON.stringify({
+          ...data,
+          _id: id, //Include the ID
+        })
       );
 
-      if (updateConfigurationTemplate.fulfilled.match(result)) {
+      if (files?.configFile) {
+        formData.append("configFile", files.configFile);
+      }
+
+      const result = await dispatch(
+        updateConfigurationTemplate({
+          id: id as string,
+          formData, // Changed from 'data' to 'formData'
+        })
+      ).unwrap();
+
+      if (result) {
         router.push(`/configs/${id}`);
       }
     } catch (error) {
@@ -70,6 +98,14 @@ const ConfigurationDetailPage: NextPage = () => {
 
   const handleClearError = () => {
     dispatch(clearConfigurationError());
+  };
+
+  const handleEditClick = () => {
+    router.push(`/configs/${id}?mode=edit`);
+  };
+
+  const handleCancelEdit = () => {
+    router.push(`/configs/${id}`);
   };
 
   return (
@@ -91,6 +127,20 @@ const ConfigurationDetailPage: NextPage = () => {
           ]}
         />
 
+        <Paper elevation={1} sx={{ p: 1, mb: 3 }}>
+          {!isEditMode && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleEditClick}
+              >
+                Edit Configuration
+              </Button>
+            </Box>
+          )}
+        </Paper>
+
         {error && (
           <Alert severity="error" onClose={handleClearError} sx={{ mb: 3 }}>
             {error}
@@ -102,12 +152,15 @@ const ConfigurationDetailPage: NextPage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <ConfigurationForm
-            onSubmit={handleSubmit}
-            initialData={currentTemplate}
-            isEdit={isEditMode}
-            readOnly={!isEditMode}
-          />
+          currentTemplate && (
+            <ConfigurationForm
+              onSubmit={handleSubmit}
+              initialData={currentTemplate}
+              mode={isEditMode ? "edit" : "view"}
+              loading={loading}
+              onCancel={isEditMode ? handleCancelEdit : undefined}
+            />
+          )
         )}
       </Box>
     </AppLayout>

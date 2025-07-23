@@ -16,15 +16,16 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  AlertColor,
   Tooltip,
   InputAdornment,
-  Skeleton,
   Menu,
   MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Snackbar,
 } from "@mui/material";
 import {
   Visibility,
@@ -47,10 +48,17 @@ import {
   deleteConfigurationTemplate,
   downloadConfigurationFile,
   clearConfigurationError,
+  fetchAllTemplates,
 } from "@/store/slices/configurationSlice";
 import { ConfigurationTemplate } from "@/types/configuration";
 import { useTheme } from "@mui/material/styles";
 import { format } from "date-fns";
+
+interface SnackbarState {
+  open: boolean;
+  message: string;
+  severity: AlertColor;
+}
 
 const ConfigurationsList = React.memo(() => {
   const dispatch = useAppDispatch();
@@ -70,6 +78,14 @@ const ConfigurationsList = React.memo(() => {
   const [selectedConfig, setSelectedConfig] =
     useState<ConfigurationTemplate | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Snackbar state with proper typing
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   // Reset error state when component unmounts
   useEffect(() => {
@@ -78,50 +94,86 @@ const ConfigurationsList = React.memo(() => {
     };
   }, [dispatch]);
 
-  // Handle menu open
+  // To handle download errors
+  useEffect(() => {
+    if (error) {
+      setSnackbar({
+        open: true,
+        message: error,
+        severity: "error",
+      });
+    }
+  }, [error]);
+
   const handleMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
     config: ConfigurationTemplate
   ) => {
-    console.log("Opening menu for config:", config);
     setAnchorEl(event.currentTarget);
     setSelectedConfig(config);
   };
 
-  // Handle menu close
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedConfig(null);
   };
 
-  // Handle delete confirmation
+  const handleDeleteClick = (config: ConfigurationTemplate) => {
+    setSelectedConfig(config);
+    setDeleteDialogOpen(true);
+    setAnchorEl(null); // Close the menu
+  };
+
   const handleDeleteConfirm = async () => {
-    if (selectedConfig) {
-      const configId = selectedConfig.id || selectedConfig._id;
-      if (!configId) {
-        console.error("No valid ID found for configuration to delete");
-        return;
-      }
-      try {
-        await dispatch(deleteConfigurationTemplate(configId)).unwrap();
-        setDeleteDialogOpen(false);
-      } catch (error) {
-        console.error("Failed to delete configuration:", error);
-      }
+    if (!selectedConfig) return;
+
+    const configId = selectedConfig._id || selectedConfig.id;
+    if (!configId) {
+      console.error("No valid ID found for configuration to delete");
+      setSnackbar({
+        open: true,
+        message: "No valid configuration ID found",
+        severity: "error",
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteConfigurationTemplate(configId)).unwrap();
+
+      setSnackbar({
+        open: true,
+        message: "Configuration deleted successfully",
+        severity: "success",
+      });
+
+      // Refresh the list
+      await dispatch(fetchAllTemplates());
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to delete configuration";
+      console.error("Failed to delete configuration:", errorMessage);
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: "error",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setSelectedConfig(null);
     }
   };
 
-  // Get the ID from a configuration template (handles both id and _id)
   const getConfigId = (
     config: ConfigurationTemplate | null
   ): string | undefined => {
     if (!config) return undefined;
-    return config.id || config._id;
+    return config._id || config.id;
   };
 
   // Memoized data calculations
   const { filteredConfigs, paginatedConfigs, tableRows } = useMemo(() => {
-    // Filter configurations based on search term
     const filtered = templates.filter(
       (config) =>
         config.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -129,13 +181,11 @@ const ConfigurationsList = React.memo(() => {
         config.configType?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Paginate the filtered results
     const paginated = filtered.slice(
       page * rowsPerPage,
       page * rowsPerPage + rowsPerPage
     );
 
-    // Create memoized table rows
     const rows = paginated
       .map((config, index) => {
         const configId = getConfigId(config);
@@ -229,16 +279,15 @@ const ConfigurationsList = React.memo(() => {
           </TableRow>
         );
       })
-      .filter(Boolean); // Filter out any null rows from invalid configurations
+      .filter(Boolean);
 
     return {
       filteredConfigs: filtered,
       paginatedConfigs: paginated,
       tableRows: rows,
     };
-  }, [templates, searchTerm, page, rowsPerPage, dispatch, router]);
+  }, [templates, searchTerm, page, rowsPerPage, router]);
 
-  // Loading and error states
   if (!router.isReady || loading) {
     return (
       <Box
@@ -266,6 +315,8 @@ const ConfigurationsList = React.memo(() => {
 
   return (
     <Paper sx={{ p: 3, borderRadius: 2, boxShadow: theme.shadows[3] }}>
+      {/* ... (rest of your JSX remains the same until the Menu component) ... */}
+
       <Box
         sx={{
           display: "flex",
@@ -391,9 +442,7 @@ const ConfigurationsList = React.memo(() => {
           onClick={() => {
             const configId = getConfigId(selectedConfig);
             if (configId) {
-              router.push(`/configs/${configId}?edit=true`);
-            } else {
-              console.error("No configuration ID available for editing");
+              router.push(`/configs/${configId}?mode=edit`);
             }
             handleMenuClose();
           }}
@@ -407,10 +456,8 @@ const ConfigurationsList = React.memo(() => {
             if (configId) {
               router.push({
                 pathname: `/configs/deploy/${configId}`,
-                query: { fromList: true }, //Flag to track navigation source
+                query: { fromList: true },
               });
-            } else {
-              console.error("No configuration ID available for deployment");
             }
             handleMenuClose();
           }}
@@ -418,13 +465,38 @@ const ConfigurationsList = React.memo(() => {
           <LinkIcon fontSize="small" sx={{ mr: 1 }} /> Deploy
         </MenuItem>
 
+        {/*
         <MenuItem
           onClick={() => {
             const configId = getConfigId(selectedConfig);
             if (configId) {
               dispatch(downloadConfigurationFile(configId));
-            } else {
-              console.error("No configuration ID available for download");
+            }
+            handleMenuClose();
+          }}
+        >
+          <Download fontSize="small" sx={{ mr: 1 }} /> Download
+        </MenuItem>
+        */}
+
+        <MenuItem
+          onClick={() => {
+            const configId = getConfigId(selectedConfig);
+            if (configId && selectedConfig) {
+              dispatch(
+                downloadConfigurationFile({
+                  templateId: configId,
+                  template: selectedConfig,
+                })
+              )
+                .unwrap()
+                .catch((error) => {
+                  setSnackbar({
+                    open: true,
+                    message: error || "Failed to download configuration",
+                    severity: "error",
+                  });
+                });
             }
             handleMenuClose();
           }}
@@ -433,10 +505,7 @@ const ConfigurationsList = React.memo(() => {
         </MenuItem>
 
         <MenuItem
-          onClick={() => {
-            setDeleteDialogOpen(true);
-            handleMenuClose();
-          }}
+          onClick={() => selectedConfig && handleDeleteClick(selectedConfig)}
         >
           <Delete fontSize="small" sx={{ mr: 1 }} color="error" /> Delete
         </MenuItem>
@@ -455,16 +524,37 @@ const ConfigurationsList = React.memo(() => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleDeleteConfirm}
             color="error"
             variant="contained"
+            disabled={isDeleting}
           >
-            Delete
+            {isDeleting ? <CircularProgress size={24} /> : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 });

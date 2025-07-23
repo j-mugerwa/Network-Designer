@@ -31,6 +31,7 @@
     "fs": "^0.0.1-security",
     "heroicons": "^2.2.0",
     "https-browserify": "^1.0.0",
+    "jspdf": "^3.0.1",
     "material-ui-confirm": "^4.0.0",
     "mui": "^0.0.1",
     "next": "^15.3.2",

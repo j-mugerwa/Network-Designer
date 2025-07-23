@@ -17,66 +17,6 @@ const { fileSizeFormatter } = require("../utils/fileUpload");
 // @route   POST /api/config-templates
 // @access  Private (Admin/Editor)
 
-/*
-const createTemplate = asyncHandler(async (req, res, next) => {
-  try {
-    // Parse the JSON payload
-    const payload = JSON.parse(req.body.payload);
-
-    // Process the payload to match schema
-    const templateData = {
-      ...payload,
-      // Ensure compatibility exists and has proper array values
-      compatibility: payload.compatibility
-        ? {
-            osVersions: Array.isArray(payload.compatibility.osVersions)
-              ? payload.compatibility.osVersions
-              : [],
-            firmwareVersions: Array.isArray(
-              payload.compatibility.firmwareVersions
-            )
-              ? payload.compatibility.firmwareVersions
-              : [],
-          }
-        : { osVersions: [], firmwareVersions: [] },
-      // Process file if exists
-      configFile: req.file
-        ? {
-            filename: req.file.filename,
-            originalName: req.file.originalname,
-            path: req.file.path,
-            size: req.file.size,
-            mimeType: req.file.mimetype,
-            uploadedBy: req.user._id,
-          }
-        : null,
-    };
-
-    // Create and validate the template
-    const configTemplate = await ConfigurationTemplate.create(templateData);
-
-    // Cleanup if needed
-    if (req.file) {
-      await fs.promises.unlink(req.file.path).catch(console.error);
-    }
-
-    res.status(201).json({
-      status: "success",
-      data: configTemplate,
-    });
-  } catch (error) {
-    // Enhanced error handling
-    if (error instanceof mongoose.Error.ValidationError) {
-      const messages = Object.values(error.errors).map((err) => err.message);
-      return next(
-        new AppError(`Validation failed: ${messages.join(", ")}`, 400)
-      );
-    }
-    next(error);
-  }
-});
-*/
-
 const createTemplate = asyncHandler(async (req, res, next) => {
   try {
     // 1. Parse the incoming data
@@ -244,65 +184,125 @@ const getTemplate = asyncHandler(async (req, res, next) => {
 // @desc    Update template
 // @route   PUT /api/config-templates/:id
 // @access  Private (Admin/Editor)
+
+//Utility to check the variables
+const checkUndefinedVariables = (template, variables) => {
+  if (!template) return [];
+  const variableMatches = template.match(/\{\{([^}]+)\}\}/g) || [];
+  const definedVars = variables.map((v) => v.name);
+  return variableMatches
+    .map((match) => match.replace(/\{\{|\}\}/g, ""))
+    .filter((varName) => !definedVars.includes(varName));
+};
+
+//Template update
 const updateTemplate = asyncHandler(async (req, res, next) => {
-  const { template, variables, configSourceType, ...otherFields } = req.body;
+  try {
+    // 1. Get the existing template
+    const existingTemplate = await ConfigurationTemplate.findById(
+      req.params.id
+    );
+    if (!existingTemplate) {
+      return next(new AppError("Configuration template not found", 404));
+    }
 
-  const existingTemplate = await ConfigurationTemplate.findById(req.params.id);
-  if (!existingTemplate) {
-    return next(new AppError("Configuration template not found", 404));
-  }
+    // 2. Parse the incoming FormData
+    if (!req.body.config) {
+      return next(new AppError("Missing configuration data", 400));
+    }
 
-  // Handle file upload if updating to file-based config
-  let configFile = existingTemplate.configFile;
-  if (req.file && configSourceType === "file") {
-    try {
-      // Delete old file from Cloudinary if it exists
-      if (configFile?.publicId) {
-        await deleteFromCloudinary(configFile.publicId, "raw");
+    const configData = JSON.parse(req.body.config);
+
+    // 3. Handle file upload if updating to file-based config
+    let configFile = existingTemplate.configFile;
+    if (req.file && configData.configSourceType === "file") {
+      try {
+        // Delete old file if it exists
+        if (configFile?.publicId) {
+          await deleteFromCloudinary(configFile.publicId, "raw");
+        }
+
+        const uploadResult = await uploadConfigToCloudinary(req.file.path, {
+          folder: `config-templates/${req.user._id}`,
+        });
+
+        configFile = {
+          url: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          originalName: req.file.originalname,
+          size: uploadResult.bytes,
+          mimeType: req.file.mimetype,
+          uploadedBy: req.user._id,
+        };
+      } catch (error) {
+        return next(new AppError(`File upload failed: ${error.message}`, 500));
       }
-
-      const uploadResult = await uploadConfigToCloudinary(req.file.path, {
-        folder: `config-templates/${req.user._id}`,
-      });
-
-      configFile = {
-        url: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        originalName: req.file.originalname,
-        size: uploadResult.bytes,
-        mimeType: req.file.mimetype,
-        uploadedBy: req.user._id,
-      };
-    } catch (error) {
-      return next(new AppError(`File upload failed: ${error.message}`, 500));
     }
-  }
 
-  // Validate template variables if template is being updated
-  if (template && variables && configSourceType === "template") {
-    const validationErrors = existingTemplate.validateVariables(variables);
-    if (validationErrors) {
-      return next(new AppError(validationErrors.join(", "), 400));
+    // 4. Validate template variables if template is being updated
+    if (
+      configData.template &&
+      configData.variables &&
+      configData.configSourceType === "template"
+    ) {
+      const undefinedVars = checkUndefinedVariables(
+        configData.template,
+        configData.variables
+      );
+      if (undefinedVars.length > 0) {
+        return next(
+          new AppError(`Undefined variables: ${undefinedVars.join(", ")}`, 400)
+        );
+      }
     }
+
+    // 5. Update the template
+    const updatedTemplate = await ConfigurationTemplate.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...configData,
+        configFile,
+        lastUpdatedBy: req.user._id,
+        // Ensure compatibility exists with proper array format
+        compatibility: {
+          osVersions: Array.isArray(configData.compatibility?.osVersions)
+            ? configData.compatibility.osVersions
+            : [],
+          firmwareVersions: Array.isArray(
+            configData.compatibility?.firmwareVersions
+          )
+            ? configData.compatibility.firmwareVersions
+            : [],
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    // 6. Cleanup temporary files if needed
+    if (req.file) {
+      await fs.promises.unlink(req.file.path).catch(console.error);
+    }
+
+    // 7. Return success response
+    res.status(200).json({
+      status: "success",
+      data: updatedTemplate,
+    });
+  } catch (error) {
+    // Enhanced error handling
+    if (error instanceof SyntaxError) {
+      return next(
+        new AppError("Invalid JSON format in configuration data", 400)
+      );
+    }
+    if (error instanceof mongoose.Error.ValidationError) {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return next(
+        new AppError(`Validation failed: ${messages.join(", ")}`, 400)
+      );
+    }
+    next(error);
   }
-
-  const updatedTemplate = await ConfigurationTemplate.findByIdAndUpdate(
-    req.params.id,
-    {
-      ...otherFields,
-      template,
-      variables,
-      configSourceType,
-      configFile,
-      lastUpdatedBy: req.user._id,
-    },
-    { new: true, runValidators: true }
-  );
-
-  res.status(200).json({
-    status: "success",
-    data: updatedTemplate,
-  });
 });
 
 // @desc    Deploy configuration to device
@@ -412,7 +412,6 @@ const deployConfiguration = asyncHandler(async (req, res, next) => {
     },
   });
 });
-
 // @desc    Get deployment history for a device
 // @route   GET /api/devices/:deviceId/config-deployments
 // @access  Private
@@ -642,48 +641,59 @@ const getUserDeployments = asyncHandler(async (req, res, next) => {
 // @desc    Delete configuration template
 // @route   DELETE /api/config-templates/:id
 // @access  Private (Admin/Editor)
+
 const deleteTemplate = asyncHandler(async (req, res, next) => {
-  const template = await ConfigurationTemplate.findById(req.params.id);
+  try {
+    const template = await ConfigurationTemplate.findById(req.params.id);
 
-  if (!template) {
-    return next(new AppError("Configuration template not found", 404));
-  }
+    if (!template) {
+      return next(new AppError("Configuration template not found", 404));
+    }
 
-  // Check if template has active deployments
-  const hasActiveDeployments = template.deployments.some(
-    (d) => d.status === "active"
-  );
+    // Check if template has active deployments
+    const hasActiveDeployments =
+      template.deployments?.some((d) => d.status === "active") || false;
 
-  if (hasActiveDeployments) {
+    if (hasActiveDeployments) {
+      return next(
+        new AppError(
+          `Cannot delete template "${template.name}" - it has active deployments. Rollback deployments first.`,
+          400
+        )
+      );
+    }
+
+    // Delete associated file from Cloudinary if exists
+    if (template.configFile?.publicId) {
+      try {
+        await deleteFromCloudinary(template.configFile.publicId, "raw");
+      } catch (error) {
+        console.error("Cloudinary deletion error:", error);
+        // Continue with deletion even if file deletion fails
+      }
+    }
+
+    await ConfigurationTemplate.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        id: req.params.id,
+        name: template.name,
+      },
+    });
+  } catch (error) {
+    console.error("Delete error:", error);
     return next(
-      new AppError(
-        "Cannot delete template with active deployments. Rollback deployments first.",
-        400
-      )
+      new AppError(`Failed to delete configuration: ${error.message}`, 500)
     );
   }
-
-  // Delete associated file from Cloudinary if exists
-  if (template.configFile?.publicId) {
-    try {
-      await deleteFromCloudinary(template.configFile.publicId, "raw");
-    } catch (error) {
-      console.error("Failed to delete file from Cloudinary:", error);
-      // Continue with deletion even if file deletion fails
-    }
-  }
-
-  await ConfigurationTemplate.findByIdAndDelete(req.params.id);
-
-  res.status(204).json({
-    status: "success",
-    data: null,
-  });
 });
 
 // @desc    Download configuration file
 // @route   GET /api/config-templates/:id/file
 // @access  Private
+/*
 const downloadConfigFile = asyncHandler(async (req, res, next) => {
   const template = await ConfigurationTemplate.findById(req.params.id);
 
@@ -708,6 +718,45 @@ const downloadConfigFile = asyncHandler(async (req, res, next) => {
   }
 
   res.download(template.configFile.path, template.configFile.originalName);
+});
+*/
+
+const downloadConfigFile = asyncHandler(async (req, res, next) => {
+  const template = await ConfigurationTemplate.findById(req.params.id);
+
+  if (!template) {
+    return next(new AppError("Configuration template not found", 404));
+  }
+
+  // Handle both file-based and template-based configurations
+  if (template.configSourceType === "file" && template.configFile?.url) {
+    // Cloudinary or direct file download
+    if (shouldUseCloudinary()) {
+      return res.redirect(template.configFile.url);
+    }
+
+    // Local file download
+    if (template.configFile.path && fs.existsSync(template.configFile.path)) {
+      return res.download(
+        template.configFile.path,
+        template.configFile.originalName
+      );
+    }
+  }
+
+  // For template-based configs, return the template content as a file
+  if (template.configSourceType === "template" && template.template) {
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=configuration-${template.name}.txt`
+    );
+    return res.send(template.template);
+  }
+
+  return next(
+    new AppError("No downloadable content available for this template", 400)
+  );
 });
 
 // @desc    Get compatible templates for a device

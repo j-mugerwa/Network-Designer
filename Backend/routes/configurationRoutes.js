@@ -16,6 +16,7 @@ const {
   downloadConfigFile,
   getCompatibleTemplates,
   updateDeploymentStatus,
+  deleteTemplate,
 } = require("../controllers/configurationController");
 
 // Apply authentication to all routes
@@ -37,13 +38,13 @@ router.post(
   deployConfiguration
 );
 
-router.get("/deployments/by-config", getDeploymentsByConfig);
-router.get("/deployments/by-user", getUserDeployments);
+router.get("/deployments/by-config", getDeploymentsByConfig); //For all deployments.
+router.get("/deployments/by-user", getUserDeployments); // User Specific deployments
 router.get("/:id/file", downloadConfigFile);
 router.patch("/:templateId/deployments/:deploymentId", updateDeploymentStatus);
 
 // Device-specific configuration routes
 router.get("/devices/:deviceId/compatible-templates", getCompatibleTemplates);
 router.get("/devices/:deviceId/config-deployments", getDeviceDeploymentHistory);
-
+router.delete("/:id", deleteTemplate);
 module.exports = router;
