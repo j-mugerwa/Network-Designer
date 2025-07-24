@@ -6,7 +6,8 @@
     "start": "next start",
     "dev": "next dev",
     "build": "next build",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "npm install typescript@5.8.3 --save-dev"
   },
   "keywords": [],
   "author": "",

@@ -5,6 +5,19 @@ const webpack = require("webpack");
 const nextConfig = {
   reactStrictMode: true,
   output: "export", // Enable static export for Render.com
+
+  headers: async () => [
+    {
+      source: "/_next/static/:path*",
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "public, max-age=31536000, immutable",
+        },
+      ],
+    },
+  ],
+
   images: {
     unoptimized: true, // Disable Next.js image optimization (Render handles this)
   },
