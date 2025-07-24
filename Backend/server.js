@@ -95,17 +95,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Load SSL certificate and key
-//const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
-//const certificate = fs.readFileSync("./certs/cert.crt", "utf8");
-//const credentials = { key: privateKey, cert: certificate };
-
-//Create HTTPS server
-//const httpsServer = https.createServer(credentials, app);
-
+// MongoDB Connection set up..
 const MONGO_URI = process.env.MONGO_URI;
-
 const PORT = process.env.PORT || 10000;
+
 mongoose
   .connect(MONGO_URI)
   .then(() => {
@@ -114,20 +107,6 @@ mongoose
     });
   })
   .catch((err) => console.error("MongoDB connection error:", err));
-
-// MongoDB Connection
-/*
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    // Start HTTPS server
-    httpsServer.listen(443, () => {
-      console.log("MongoDB connected successfully");
-      console.log("HTTPS Server running on https://localhost");
-    });
-  })
-  .catch((err) => console.error("MongoDB connection error:", err));
-  */
 
 //Synchronise the paystack plans with my local mongo plans
 setupPlanSyncSchedule();
