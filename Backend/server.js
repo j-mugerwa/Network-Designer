@@ -46,8 +46,9 @@ app.use(bodyParser.json());
 //Cors set up
 app.use(
   cors({
-    origin: "http://localhost:3000", //frontend URL
+    //origin: "http://localhost:3000", //frontend URL
     //origin: '*',
+    origin: "https://network-designer-frontend.onrender.com",
     credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: "Content-Type,Authorization",
