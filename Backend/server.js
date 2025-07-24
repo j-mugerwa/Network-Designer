@@ -15,8 +15,7 @@ require("dotenv").config();
 
 dotenv.config();
 
-//Routes
-
+//Routes Imports.
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const equipmentRoutes = require("./routes/equipmentRoutes");
@@ -59,13 +58,10 @@ app.use(
 app.options("*", cors());
 
 app.use((req, res, next) => {
-  //console.log(`Incoming ${req.method} request to ${req.path}`);
-  //console.log('Headers:', req.headers);
   next();
 });
 
-// Routes
-
+// Routes Setup
 app.use("/api/users", userRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/equipment", equipmentRoutes);
@@ -100,15 +96,27 @@ app.use((req, res, next) => {
 });
 
 // Load SSL certificate and key
-const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
-const certificate = fs.readFileSync("./certs/cert.crt", "utf8");
-const credentials = { key: privateKey, cert: certificate };
+//const privateKey = fs.readFileSync("./certs/cert.key", "utf8");
+//const certificate = fs.readFileSync("./certs/cert.crt", "utf8");
+//const credentials = { key: privateKey, cert: certificate };
 
-// Create HTTPS server
-const httpsServer = https.createServer(credentials, app);
+//Create HTTPS server
+//const httpsServer = https.createServer(credentials, app);
 
 const MONGO_URI = process.env.MONGO_URI;
+
+const PORT = process.env.PORT || 10000;
+mongoose
+  .connect(MONGO_URI)
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => console.error("MongoDB connection error:", err));
+
 // MongoDB Connection
+/*
 mongoose
   .connect(MONGO_URI)
   .then(() => {
@@ -119,6 +127,7 @@ mongoose
     });
   })
   .catch((err) => console.error("MongoDB connection error:", err));
+  */
 
 //Synchronise the paystack plans with my local mongo plans
 setupPlanSyncSchedule();

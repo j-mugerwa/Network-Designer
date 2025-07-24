@@ -7,7 +7,6 @@ import {
   UserCredential,
 } from "firebase/auth";
 import axios from "@/lib/api/client";
-//import axios from "axios";
 import apiClient from "@/lib/api/client";
 import { RootState } from "../store";
 
