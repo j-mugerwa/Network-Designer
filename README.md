@@ -51,23 +51,23 @@ Test the deployed version with:
 # 💻 Tech Stack
 Frontend:
 
-Next.js 15 + React 19
+1. Next.js 15 + React 19
 
-Redux Toolkit + RTK Query
+2. Redux Toolkit + RTK Query
 
-Vis.js Network Topology
+3. Vis.js Network Topology
 
-jsPDF + PDFKit
+4. jsPDF + PDFKit
 
 Backend:
 
-Node.js + Express
+1. Node.js + Express
 
-MongoDB Atlas
+2. MongoDB Atlas
 
-Firebase for Authentication
+3. Firebase for Authentication
 
-Puppeteer (for PDF generation)
+4. Puppeteer (for PDF generation)
 
 # 🛠️ Setup Guide
 ### 1. Create a .env file in your Backend and Frontend directories following the .env-example provided
@@ -75,48 +75,48 @@ Puppeteer (for PDF generation)
 git clone https://github.com/j-mugerwa/Network-Designer
 
 ### 3. Setup backend
-`cd Backend`
-
-`npm install`
-
-`npm run backend`
+```
+cd Backend
+npm install
+npm run backend
+```
 
 ### 4. Setup frontend
 
-`cd ../Frontend`
-
-`npm install`
-
-`npm run dev`
+```
+cd ../Frontend
+npm install
+npm run dev
+```
 
 # 🤝 Contribution Roadmap
 ## Team Collaboration Module (Priority)
 
 Real-time design editing
 
-Comment threads
+1. Comment threads
 
-@mentions
+2. @mentions
 
 
 ## Advanced Reporting
 
-Custom report designer
+1. Custom report designer
 
-Scheduled exports
+2. Scheduled exports
 
 # 🤝 Contributors
 Recognition Guidelines:
 
-First-time contributors: Added to "Contributors" list
+* First-time contributors: Added to "Contributors" list
 
-Major features: Profile + link in "Featured Contributors"
+* Major features: Profile + link in "Featured Contributors"
 
-Security fixes: Special acknowledgment
+* Security fixes: Special acknowledgment
 
 ### Current Team:
 
-Joseph Mugerwa (Lead)
+- Joseph Mugerwa (Lead)
 
 https://github.com/j-mugerwa/
 
