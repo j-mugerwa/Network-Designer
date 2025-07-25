@@ -113,5 +113,5 @@ mongoose
 setupPlanSyncSchedule();
 // Sample Route
 app.get("/", (req, res) => {
-  res.send("Welcome to the Network Designer platform.");
+  res.send("Welcome to the Network Designer platform. Let's plan together..");
 });

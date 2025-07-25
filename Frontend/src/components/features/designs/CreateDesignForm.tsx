@@ -284,60 +284,6 @@ export const CreateDesignForm = ({
     []
   );
 
-  /*
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.designName.trim()) {
-      setError("Design name is required");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    try {
-      const payload: CreateDesignPayload = {
-        ...formData,
-        existingNetworkDetails: formData.isExistingNetwork
-          ? {
-              ...formData.existingNetworkDetails,
-              currentTopology:
-                formData.existingNetworkDetails?.currentTopology || undefined,
-              currentIssues:
-                formData.existingNetworkDetails?.currentIssues || [],
-            }
-          : undefined,
-      };
-
-      if (isEditMode && initialData?.id) {
-        const result = await dispatch(
-          updateDesign({
-            id: initialData.id,
-            designData: payload,
-          })
-        );
-
-        // Only redirect if the update was successful
-        if (updateDesign.fulfilled.match(result)) {
-          onSuccess?.(result.payload.id);
-          router.push(`/designs/${result.payload.id}`);
-          return; // Important to return here to prevent further execution
-        }
-      } else {
-        const result = await dispatch(createDesign(payload));
-        if (createDesign.fulfilled.match(result)) {
-          onSuccess?.(result.payload.id);
-          router.push(`/designs/${result.payload.id}`);
-          return;
-        }
-      }
-    } catch (err: any) {
-      console.error("Failed to save design:", err);
-      setError(err.message || "Failed to save design. Please try again.");
-      setSnackbarOpen(true);
-    }
-  };
-  */
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
