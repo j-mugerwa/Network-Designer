@@ -75,19 +75,19 @@ Puppeteer (for PDF generation)
 git clone https://github.com/j-mugerwa/Network-Designer
 
 ### 3. Setup backend
-cd Backend
+`cd Backend`
 
-npm install
+`npm install`
 
-npm run backend
+`npm run backend`
 
 ### 4. Setup frontend
 
-cd ../Frontend
+`cd ../Frontend`
 
-npm install
+`npm install`
 
-npm run dev
+`npm run dev`
 
 # 🤝 Contribution Roadmap
 ## Team Collaboration Module (Priority)
