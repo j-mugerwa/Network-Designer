@@ -111,7 +111,7 @@ mongoose
 
 //Synchronise the paystack plans with my local mongo plans
 setupPlanSyncSchedule();
-// Sample Route
+// Default Route
 app.get("/", (req, res) => {
   res.send("Welcome to the Network Designer platform. Let's plan together..");
 });
