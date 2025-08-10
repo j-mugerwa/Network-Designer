@@ -58,7 +58,7 @@ const VisualizationPage = () => {
               disabled={loading}
             >
               <MenuItem value="">
-                <em>Select a design</em>
+                <em>Select A Design</em>
               </MenuItem>
               {designs.map((design) => (
                 <MenuItem key={design.id} value={design.id}>
