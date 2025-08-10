@@ -48,7 +48,8 @@ app.use(
   cors({
     //origin: "http://localhost:3000", //frontend URL
     //origin: '*',
-    origin: "https://network-designer-frontend.onrender.com",
+    //origin: "https://network-designer-frontend.onrender.com", //Main
+    origin: "https://network-designer-front-test.onrender.com", //Test
     credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: "Content-Type,Authorization",
