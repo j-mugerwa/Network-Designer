@@ -4,7 +4,8 @@ import { auth } from "@/lib/firebase/config";
 const apiClient = axios.create({
   //baseURL: "/api",
   //baseURL: "https://localhost/api",
-  baseURL: "https://network-designer.onrender.com/api",
+  //baseURL: "https://network-designer.onrender.com/api", //Main
+  baseURL: "https://network-designer-backtest.onrender.com/api", //Test
   withCredentials: true,
 });
 
