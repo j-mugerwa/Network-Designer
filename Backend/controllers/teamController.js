@@ -3,7 +3,7 @@ const Team = require("../models/TeamModel");
 const NetworkDesign = require("../models/NetworkDesignModel");
 const AppError = require("../utils/appError");
 const crypto = require("crypto");
-const sendEmail = require("../utils/email");
+const sendEmail = require("../utils/sendEmail");
 
 // @desc    Create a new team
 // @route   POST /api/teams
@@ -348,4 +348,5 @@ module.exports = {
   inviteToTeam,
   acceptInvite,
   removeTeamMember,
+  getTeamDesigns,
 };
