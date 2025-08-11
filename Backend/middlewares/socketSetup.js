@@ -5,7 +5,7 @@ const {
   handleDesignUpdate,
   handleDesignLock,
 } = require("../controllers/networkDesignController");
-const rateLimit = require("socket.io-rate-limit");
+//const rateLimit = require("socket.io-rate-limit");
 
 module.exports = (httpServer) => {
   const io = new Server(httpServer, {
@@ -23,6 +23,7 @@ module.exports = (httpServer) => {
   });
 
   // Rate limiting middleware
+  /*
   io.use(
     rateLimit({
       windowMs: 60 * 1000, // 1 minute
@@ -30,6 +31,7 @@ module.exports = (httpServer) => {
       onExceeded: (socket) => socket.emit("rate_limit_exceeded"),
     })
   );
+  */
 
   // Authentication middleware
   io.use(async (socket, next) => {
