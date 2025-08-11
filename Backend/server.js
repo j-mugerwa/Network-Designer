@@ -14,6 +14,26 @@ const { setupPlanSyncSchedule } = require("./services/schedulerService");
 require("dotenv").config();
 dotenv.config();
 
+//Routes Imports.
+const userRoutes = require("./routes/userRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const equipmentRoutes = require("./routes/equipmentRoutes");
+const networkDesignRoutes = require("./routes/designRoutes");
+const reportRoutes = require("./routes/reportRoutes");
+const reportTemplateRoutes = require("./routes/reportTemplateRoutes");
+const optimizationRoutes = require("./routes/optimizationRoutes");
+const configurationRoutes = require("./routes/configurationRoutes");
+const versionRoutes = require("./routes/versionRoutes");
+const generatedConfigRoutes = require("./routes/generatedConfigRoutes");
+const collaborationRoutes = require("./routes/collaborationRoutes");
+const teamRoutes = require("./routes/teamRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const statsRoutes = require("./routes/statsRoutes");
+const invitationRoutes = require("./routes/invitationRoutes");
+const loginHistoryRoutes = require("./routes/loginHistoryRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const visualizationRoutes = require("./routes/visualizationRoutes");
+
 // Initialize Express app
 const app = express();
 const httpServer = createServer(app);
