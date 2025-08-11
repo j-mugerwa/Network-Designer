@@ -82,6 +82,7 @@ export interface CreateTeamPayload {
 export interface InviteMemberPayload {
   email: string;
   role?: "admin" | "member";
+  message: string;
 }
 
 export interface UpdateTeamPayload {
