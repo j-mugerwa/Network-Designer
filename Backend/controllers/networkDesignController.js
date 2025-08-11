@@ -112,9 +112,160 @@ const createDesign = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Handle real-time design updates
+// @access  Private (Socket)
+/*
+const handleDesignUpdate = async (io, socket) => {
+  return async ({ teamId, designId, changes }) => {
+    try {
+      const Team = require("../models/TeamModel");
+      const team = await Team.findOne({
+        _id: teamId,
+        "members.userId": socket.user.id,
+      });
+
+      if (team) {
+        // Validate and save changes first
+        const updatedDesign = await NetworkDesign.findOneAndUpdate(
+          { _id: designId, teamId },
+          { $set: changes, $inc: { version: 1 } },
+          { new: true }
+        );
+
+        if (!updatedDesign) {
+          throw new Error("Design not found");
+        }
+
+        // Broadcast to team members
+        socket.to(`team_${teamId}`).emit("designUpdated", {
+          designId,
+          changes: updatedDesign,
+          updatedBy: socket.user.email,
+          timestamp: new Date(),
+        });
+
+        return { success: true };
+      }
+    } catch (error) {
+      console.error("Design update error:", error);
+      socket.emit("designUpdateError", {
+        error: error.message,
+        designId,
+      });
+    }
+  };
+};
+*/
+
+const handleDesignUpdate = async (io, socket) => {
+  return async ({ teamId, designId, changes }) => {
+    try {
+      const Team = require("../models/TeamModel");
+      const NetworkDesign = require("../models/NetworkDesignModel");
+
+      // Verify team membership and update lastModified
+      const team = await Team.findOneAndUpdate(
+        {
+          _id: teamId,
+          "members.userId": socket.user.id,
+        },
+        {
+          $set: {
+            lastModified: {
+              by: socket.user.id,
+              at: new Date(),
+            },
+          },
+        },
+        { new: true }
+      );
+
+      if (!team) {
+        throw new Error("Not a member of this team");
+      }
+
+      // Validate and save design changes
+      const updatedDesign = await NetworkDesign.findOneAndUpdate(
+        { _id: designId, teamId },
+        {
+          $set: changes,
+          $inc: { version: 1 },
+          lastModified: new Date(),
+        },
+        { new: true }
+      );
+
+      if (!updatedDesign) {
+        throw new Error("Design not found");
+      }
+
+      // Broadcast to team members
+      io.to(`team_${teamId}`).emit("designUpdated", {
+        designId,
+        changes: updatedDesign,
+        updatedBy: {
+          id: socket.user.id,
+          email: socket.user.email,
+          name: socket.user.name,
+        },
+        teamLastModified: team.lastModified,
+        timestamp: new Date(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Design update error:", error);
+      socket.emit("designUpdateError", {
+        error: error.message,
+        designId,
+        timestamp: new Date(),
+      });
+    }
+  };
+};
+
+// @desc    Handle design locking for collaboration
+// @access  Private (Socket)
+const handleDesignLock = async (io) => {
+  return async ({ designId, isLocked }, socket) => {
+    try {
+      const design = await NetworkDesign.findOne({
+        _id: designId,
+        $or: [
+          { userId: socket.user.id },
+          { "collaborators.userId": socket.user.id },
+        ],
+      });
+
+      if (!design) {
+        throw new Error("Design not found or no permission");
+      }
+
+      // Update lock status
+      design.isLocked = isLocked;
+      design.lockedBy = isLocked ? socket.user.id : null;
+      await design.save();
+
+      // Notify all users viewing this design
+      io.to(`design_${designId}`).emit("designLockChanged", {
+        designId,
+        isLocked,
+        lockedBy: isLocked ? socket.user.email : null,
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Design lock error:", error);
+      socket.emit("designLockError", { error: error.message });
+    }
+  };
+};
+
 // @desc    Update a network design
 // @route   PUT /api/designs/:id
 // @access  Private
+
+/*
 const updateDesign = asyncHandler(async (req, res) => {
   const { error } = validateDesignInput(req.body, true);
   if (error) {
@@ -159,12 +310,83 @@ const updateDesign = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   );
 
+  // Emit real-time update if socket exists
+  if (req.io && updatedDesign.teamId) {
+    req.io.to(`team_${updatedDesign.teamId}`).emit("designUpdated", {
+      designId: updatedDesign._id,
+      changes: updatedDesign,
+      updatedBy: req.user.email,
+      timestamp: new Date(),
+    });
+  }
+
   res.json({
     success: true,
     message: "Design updated successfully",
     data: {
       design: updatedDesign,
       changes: updatedDesign.modifiedPaths(),
+    },
+  });
+});
+*/
+
+const updateDesign = asyncHandler(async (req, res) => {
+  const { error } = validateDesignInput(req.body, true);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: error.details[0].message,
+    });
+  }
+
+  const design = await NetworkDesign.findOne({
+    _id: req.params.id,
+    $or: [
+      { userId: req.user._id }, // Original creator
+      { teamId: { $exists: true } }, // Team designs handled via socket
+    ],
+  });
+
+  if (!design) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or no permission",
+    });
+  }
+
+  // Handle team-based designs differently
+  if (design.teamId) {
+    return res.status(403).json({
+      success: false,
+      error: "Team designs must be updated via real-time collaboration",
+      hint: "Use the websocket connection for team designs",
+    });
+  }
+
+  // For non-team designs (original flow)
+  const { designName, description, isExistingNetwork, requirements } = req.body;
+
+  const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+    req.params.id,
+    {
+      designName,
+      description,
+      isExistingNetwork,
+      requirements,
+      $inc: { version: 1 },
+      lastModified: new Date(),
+    },
+    { new: true, runValidators: true }
+  );
+
+  res.json({
+    success: true,
+    message: "Design updated successfully",
+    data: {
+      design: updatedDesign,
+      changes: updatedDesign.modifiedPaths(),
+      lastModified: updatedDesign.lastModified,
     },
   });
 });
@@ -446,4 +668,7 @@ module.exports = {
   getUserDesigns,
   getDesign,
   archiveDesign,
+  //Socket-Related
+  handleDesignUpdate,
+  handleDesignLock,
 };

@@ -22,6 +22,7 @@ import topologyReducer from "@/store/slices/networkTopologySlice";
 import networkReportReducer from "@/store/slices/networkReportSlice";
 import equipmentReducer from "@/store/slices/equipmentSlice";
 import configurationReducer from "@/store/slices/configurationSlice";
+import teamReducer from "@/store/slices/teamSlice";
 import { Equipment } from "@/types/equipment";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 
@@ -67,6 +68,7 @@ const rootReducer = combineReducers({
   reports: networkReportReducer,
   equipment: equipmentReducer,
   configuration: configurationReducer,
+  team: teamReducer,
 });
 
 export const store = configureStore({

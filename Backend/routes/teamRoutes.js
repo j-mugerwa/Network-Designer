@@ -1,5 +1,7 @@
+// routes/teamRoutes.js
 const express = require("express");
 const router = express.Router();
+const rateLimit = require("express-rate-limit");
 const verifyFirebaseToken = require("../middlewares/firebaseAuth");
 const {
   createTeam,
@@ -8,17 +10,30 @@ const {
   updateTeam,
   addTeamMember,
   removeTeamMember,
+  inviteToTeam,
+  acceptInvite,
+  getTeamDesigns,
 } = require("../controllers/teamController");
 
-// Apply authentication to all routes
+const inviteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 invite requests per window
+});
+
 router.use(verifyFirebaseToken);
 
-router.route("/").post(createTeam).get(getUserTeams);
+router.post("/", createTeam);
+router.get("/", getUserTeams);
+router.get("/:id", getTeam);
+router.put("/:id", updateTeam);
 
-router.route("/:id").get(getTeam).put(updateTeam);
+router.post("/:id/members", addTeamMember);
+router.delete("/:id/members/:memberId", removeTeamMember);
 
-router.route("/:id/members").post(addTeamMember);
+router.post("/:id/invite", inviteLimiter, inviteToTeam);
+router.post("/accept-invite", acceptInvite);
 
-router.route("/:id/members/:memberId").delete(removeTeamMember);
+// New route for team designs
+router.get("/:id/designs", getTeamDesigns);
 
 module.exports = router;
