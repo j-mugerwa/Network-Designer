@@ -446,165 +446,6 @@ const handleEmailVerification = asyncHandler(async (req, res) => {
   }
 });
 
-// Updated loginUser function with proper async handling
-
-/*
-const loginUser = asyncHandler(async (req, res) => {
-  const { idToken } = req.body;
-
-  if (!idToken) {
-    return res.status(400).json({
-      success: false,
-      error: "ID token is required",
-    });
-  }
-
-  try {
-    // Verify the ID token
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const uid = decodedToken.uid;
-    const ipAddress =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const userAgent = req.headers["user-agent"];
-
-    console.log("Starting login process for user:", uid);
-    console.log("Connection details:", {
-      ipAddress,
-      userAgent,
-      time: new Date().toISOString(),
-    });
-
-    // Check cache first
-    const cacheKey = `user-${uid}`;
-    if (userCache.has(cacheKey)) {
-      console.log("Serving from cache for user:", uid);
-      const cachedUser = userCache.get(cacheKey);
-      return res.json({
-        success: true,
-        data: cachedUser,
-      });
-    }
-
-    // Fetch user from MongoDB
-    console.log("Fetching user from database for:", uid);
-    const user = await User.findOne({ firebaseUID: uid })
-      .select("-__v -updatedAt")
-      .lean();
-
-    if (!user) {
-      console.error("User not found in database for UID:", uid);
-      return res.status(404).json({
-        success: false,
-        error: "User not found",
-      });
-    }
-
-    const isFirstLogin = !user.lastLogin;
-    const now = new Date();
-
-    // Prepare response data
-    const userData = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      company: user.company,
-      subscription: user.subscription,
-      trial: user.trial,
-      createdAt: user.createdAt,
-      isFirstLogin,
-    };
-
-    // Cache the user data
-    userCache.set(cacheKey, userData);
-    setTimeout(() => userCache.delete(cacheKey), CACHE_TTL);
-
-    // Send response immediately
-    console.log("Sending response for user:", uid);
-    res.json({
-      success: true,
-      data: userData,
-    });
-
-    // Start history tracking in background
-    //console.log("Starting background history tracking for:", uid);
-    try {
-      // Check database connection
-      const dbState = mongoose.connection.readyState;
-      console.log("Database connection state:", dbState);
-      if (dbState !== 1) {
-        throw new Error("Database not connected");
-      }
-
-      // Create login history record
-      console.log("Creating login history record...");
-      const loginRecord = new LoginHistory({
-        userId: user._id,
-        ipAddress,
-        userAgent,
-        createdAt: now,
-        updatedAt: now,
-        timestamp: now,
-      });
-
-      const savedRecord = await loginRecord.save();
-      //console.log("LoginHistory saved successfully:", savedRecord._id);
-
-      // Update user document
-      //console.log("Updating user document...");
-      const updateResult = await User.updateOne(
-        { _id: user._id },
-        {
-          $push: { loginHistory: savedRecord._id },
-          $set: {
-            lastLogin: now,
-            ...(isFirstLogin && { isFirstLogin: false }),
-          },
-        }
-      );
-      // Send first login notification if needed
-      if (isFirstLogin) {
-        console.log("Sending first login notification...");
-        await sendEmail(
-          "First Login Notification",
-          `Welcome ${user.name}, we noticed this is your first login to our platform.`,
-          user.email
-        );
-        console.log("First login notification sent");
-      }
-    } catch (err) {
-      console.error("Login history tracking failed:", {
-        error: err.message,
-        stack: err.stack,
-        userId: user._id,
-        ipAddress,
-        userAgent,
-        time: new Date().toISOString(),
-      });
-    }
-  } catch (error) {
-    console.error("Login error:", {
-      message: error.message,
-      stack: error.stack,
-      time: new Date().toISOString(),
-    });
-
-    if (error.code === "auth/id-token-expired") {
-      return res.status(401).json({
-        success: false,
-        error: "Session expired, please login again",
-      });
-    }
-
-    res.status(401).json({
-      success: false,
-      error: "Authentication failed",
-      details: error.message,
-    });
-  }
-});
-*/
-
 //Updated Login with clear History.
 const loginUser = asyncHandler(async (req, res) => {
   const { idToken } = req.body;
@@ -735,7 +576,7 @@ const loginUser = asyncHandler(async (req, res) => {
         if (isFirstLogin) {
           await sendEmail(
             "First Login Notification",
-            `Welcome ${user.name}, we noticed this is your first login to our platform.`,
+            `Welcome ${user.name}, we noticed this is your first login to our platform. Enjoy the service`,
             user.email
           );
         }
@@ -762,37 +603,6 @@ const loginUser = asyncHandler(async (req, res) => {
     });
   }
 });
-
-//Test History:
-/*
-const testLoginHistory = asyncHandler(async (req, res) => {
-  try {
-    console.log("TESTING LOGIN HISTORY CREATION");
-
-    // Use your sample user ID
-    const testRecord = new LoginHistory({
-      userId: "67ebec615ef767ef6f0163b6",
-      ipAddress: "127.0.0.1",
-      userAgent: "Chrome",
-    });
-
-    const saved = await testRecord.save();
-    console.log("SAVED RECORD:", saved);
-
-    // Try updating user
-    const update = await User.updateOne(
-      { _id: "67ebfd2f1e8549a0836cad83" },
-      { $push: { loginHistory: saved._id } }
-    );
-    console.log("UPDATE RESULT:", update);
-
-    res.json({ success: true, saved, update });
-  } catch (error) {
-    console.error("TEST ERROR:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-*/
 
 // Get Current User
 const getCurrentUser = asyncHandler(async (req, res) => {
