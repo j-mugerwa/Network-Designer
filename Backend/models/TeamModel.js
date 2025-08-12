@@ -87,6 +87,7 @@ const teamSchema = new mongoose.Schema(
 teamSchema.index({ name: 1 });
 teamSchema.index({ createdBy: 1 });
 teamSchema.index({ isActive: 1 });
+
 // For faster sorting
 teamSchema.index({ "lastModified.at": -1 });
 teamSchema.index({ "members.userId": 1, "lastModified.at": -1 });
@@ -97,8 +98,8 @@ teamSchema.index({ "members.userId": 1 }, { unique: true });
 // Virtual populate
 teamSchema.virtual("owner", {
   ref: "User",
-  localField: "createdBy",
-  foreignField: "_id",
+  localField: "createdBy", // Firebase UID
+  foreignField: "firebaseUID", // Match against firebaseUID in User model
   justOne: true,
 });
 
@@ -120,7 +121,7 @@ teamSchema.methods.removeDesign = async function (designId) {
 // Pre-save hook to ensure creator is a member
 teamSchema.pre("save", function (next) {
   const creatorIsMember = this.members.some(
-    (m) => m.userId.toString() === this.createdBy.toString()
+    (m) => m.userId === this.createdBy // Direct string comparison
   );
 
   if (!creatorIsMember) {

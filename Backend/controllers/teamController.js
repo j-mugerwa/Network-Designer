@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Team = require("../models/TeamModel");
+const User = require("../models/UserModel");
 const NetworkDesign = require("../models/NetworkDesignModel");
 const AppError = require("../utils/appError");
 const crypto = require("crypto");
@@ -10,6 +11,7 @@ const mongoose = require("mongoose");
 // @route   POST /api/team
 // @access  Private
 
+/*
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
@@ -34,45 +36,48 @@ const createTeam = asyncHandler(async (req, res, next) => {
     data: team,
   });
 });
+*/
+
+const createTeam = asyncHandler(async (req, res, next) => {
+  const { name, description, members } = req.body;
+
+  // First verify the user exists in your database
+  const userExists = await User.findOne({ firebaseUID: req.user.uid });
+
+  if (!userExists) {
+    return next(new AppError("User not found in database", 404));
+  }
+
+  const team = await Team.create({
+    name,
+    description,
+    createdBy: req.user.uid,
+    members: members
+      ? members.map((m) => ({
+          userId: m.userId,
+          role: m.role || "member",
+        }))
+      : [],
+  });
+
+  // Modified population to use firebaseUID
+  await team.populate({
+    path: "owner",
+    match: { firebaseUID: req.user.uid },
+    select: "name email avatar",
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: team,
+  });
+});
 
 // @desc    Get all teams for user
 // @route   GET /api/teams
 // @access  Private
 
 /*
-const getUserTeams = asyncHandler(async (req, res, next) => {
-  try {
-    // Convert uid to ObjectId safely
-    let userId;
-    try {
-      userId = new mongoose.Types.ObjectId(req.user.uid);
-    } catch (err) {
-      return next(new AppError("Invalid user ID format", 400));
-    }
-
-    console.log("Fetching teams for user:", req.user.uid); // Debug log
-
-    const teams = await Team.find({
-      $or: [{ createdBy: userId }, { "members.userId": userId }],
-    })
-      .populate("owner", "name email avatar")
-      .populate("members.userId", "name email avatar")
-      .lean();
-
-    console.log("Found teams:", teams.length); // Debug log
-
-    res.status(200).json({
-      status: "success",
-      results: teams.length,
-      data: teams,
-    });
-  } catch (err) {
-    console.error("Error in getUserTeams:", err);
-    next(new AppError("Failed to fetch teams", 500));
-  }
-});
-*/
-
 const getUserTeams = asyncHandler(async (req, res, next) => {
   const teams = await Team.find({
     $or: [
@@ -81,6 +86,25 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
     ],
   })
     .populate("owner", "name email avatar")
+    .lean();
+
+  res.status(200).json({
+    status: "success",
+    results: teams.length,
+    data: teams,
+  });
+});
+*/
+
+const getUserTeams = asyncHandler(async (req, res, next) => {
+  const teams = await Team.find({
+    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
+  })
+    .populate({
+      path: "owner",
+      match: { firebaseUID: req.user.uid },
+      select: "name email avatar",
+    })
     .lean();
 
   res.status(200).json({
