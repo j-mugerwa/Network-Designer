@@ -37,6 +37,7 @@ const createTeam = asyncHandler(async (req, res, next) => {
 });
 */
 
+/*
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
@@ -51,6 +52,35 @@ const createTeam = asyncHandler(async (req, res, next) => {
     members: members
       ? members.map((m) => ({
           userId: mongoose.Types.ObjectId(m.userId), // Convert member IDs too
+          role: m.role || "member",
+        }))
+      : [],
+  });
+
+  // Populate owner details
+  await team.populate("owner", "name email avatar");
+
+  res.status(201).json({
+    status: "success",
+    data: team,
+  });
+});
+*/
+
+const createTeam = asyncHandler(async (req, res, next) => {
+  const { name, description, members } = req.body;
+
+  // Convert uid string to ObjectId - NEW SYNTAX
+  const createdBy = new mongoose.Types.ObjectId(req.user.uid);
+
+  // Create team with creator as owner
+  const team = await Team.create({
+    name,
+    description,
+    createdBy,
+    members: members
+      ? members.map((m) => ({
+          userId: new mongoose.Types.ObjectId(m.userId), // NEW SYNTAX
           role: m.role || "member",
         }))
       : [],
@@ -84,6 +114,7 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 });
 */
 
+/*
 const getUserTeams = asyncHandler(async (req, res, next) => {
   // Convert uid to ObjectId
   const userId = mongoose.Types.ObjectId(req.user.uid);
@@ -94,6 +125,25 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
     .populate("owner", "name email avatar")
     .populate("members.userId", "name email avatar")
     .lean(); // Use lean() for better performance
+
+  res.status(200).json({
+    status: "success",
+    results: teams.length,
+    data: teams,
+  });
+});
+*/
+
+const getUserTeams = asyncHandler(async (req, res, next) => {
+  // Convert uid to ObjectId - NEW SYNTAX
+  const userId = new mongoose.Types.ObjectId(req.user.uid);
+
+  const teams = await Team.find({
+    $or: [{ createdBy: userId }, { "members.userId": userId }],
+  })
+    .populate("owner", "name email avatar")
+    .populate("members.userId", "name email avatar")
+    .lean();
 
   res.status(200).json({
     status: "success",
