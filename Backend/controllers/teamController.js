@@ -14,33 +14,6 @@ const mongoose = require("mongoose");
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
-  // Create team with creator as owner
-  const team = await Team.create({
-    name,
-    description,
-    createdBy: req.user.uid,
-    members: members
-      ? members.map((m) => ({
-          userId: m.userId,
-          role: m.role || "member",
-        }))
-      : [],
-  });
-
-  // Populate owner details
-  await team.populate("owner", "name email avatar");
-
-  res.status(201).json({
-    status: "success",
-    data: team,
-  });
-});
-*/
-
-/*
-const createTeam = asyncHandler(async (req, res, next) => {
-  const { name, description, members } = req.body;
-
   // Convert uid string to ObjectId
   const createdBy = mongoose.Types.ObjectId(req.user.uid);
 
