@@ -7,60 +7,27 @@ const sendEmail = require("../utils/sendEmail");
 const mongoose = require("mongoose");
 
 // @desc    Create a new team
-// @route   POST /api/teams
+// @route   POST /api/team
 // @access  Private
 
-/*
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
-  // Convert uid string to ObjectId
-  const createdBy = mongoose.Types.ObjectId(req.user.uid);
-
-  // Create team with creator as owner
+  // Use Firebase UID directly
   const team = await Team.create({
     name,
     description,
-    createdBy,
+    createdBy: req.user.uid, // Store as string
     members: members
       ? members.map((m) => ({
-          userId: mongoose.Types.ObjectId(m.userId), // Convert member IDs too
+          userId: m.userId, // Store as string
           role: m.role || "member",
         }))
       : [],
   });
 
-  // Populate owner details
-  await team.populate("owner", "name email avatar");
-
-  res.status(201).json({
-    status: "success",
-    data: team,
-  });
-});
-*/
-
-const createTeam = asyncHandler(async (req, res, next) => {
-  const { name, description, members } = req.body;
-
-  // Convert uid string to ObjectId - NEW SYNTAX
-  const createdBy = new mongoose.Types.ObjectId(req.user.uid);
-
-  // Create team with creator as owner
-  const team = await Team.create({
-    name,
-    description,
-    createdBy,
-    members: members
-      ? members.map((m) => ({
-          userId: new mongoose.Types.ObjectId(m.userId), // NEW SYNTAX
-          role: m.role || "member",
-        }))
-      : [],
-  });
-
-  // Populate owner details
-  await team.populate("owner", "name email avatar");
+  // Populate owner details.
+  await team.populate("owner", "name email");
 
   res.status(201).json({
     status: "success",
@@ -73,25 +40,6 @@ const createTeam = asyncHandler(async (req, res, next) => {
 // @access  Private
 
 /*
-const getUserTeams = asyncHandler(async (req, res, next) => {
-  // Convert uid to ObjectId
-  const userId = mongoose.Types.ObjectId(req.user.uid);
-
-  const teams = await Team.find({
-    $or: [{ createdBy: userId }, { "members.userId": userId }],
-  })
-    .populate("owner", "name email avatar")
-    .populate("members.userId", "name email avatar")
-    .lean(); // Use lean() for better performance
-
-  res.status(200).json({
-    status: "success",
-    results: teams.length,
-    data: teams,
-  });
-});
-*/
-
 const getUserTeams = asyncHandler(async (req, res, next) => {
   try {
     // Convert uid to ObjectId safely
@@ -122,6 +70,24 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
     console.error("Error in getUserTeams:", err);
     next(new AppError("Failed to fetch teams", 500));
   }
+});
+*/
+
+const getUserTeams = asyncHandler(async (req, res, next) => {
+  const teams = await Team.find({
+    $or: [
+      { createdBy: req.user.uid }, // Direct string comparison
+      { "members.userId": req.user.uid }, // Direct string comparison
+    ],
+  })
+    .populate("owner", "name email avatar")
+    .lean();
+
+  res.status(200).json({
+    status: "success",
+    results: teams.length,
+    data: teams,
+  });
 });
 
 // @desc    Get single team

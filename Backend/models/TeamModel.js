@@ -25,7 +25,7 @@ const invitationSchema = new mongoose.Schema({
 
 const teamMemberSchema = new mongoose.Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: "User",
     required: [true, "User reference is required"],
   },
@@ -54,7 +54,7 @@ const teamSchema = new mongoose.Schema(
       maxlength: [500, "Description cannot exceed 500 characters"],
     },
     createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: "User",
       required: [true, "Creator reference is required"],
       validate: {

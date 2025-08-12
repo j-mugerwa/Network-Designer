@@ -51,7 +51,7 @@ const DeployConfigurationPage = () => {
       ).unwrap();
 
       if (result) {
-        router.push("/deployments");
+        router.push("/configs");
       }
     } catch (error) {
       console.error("Failed to deploy configuration:", error);
