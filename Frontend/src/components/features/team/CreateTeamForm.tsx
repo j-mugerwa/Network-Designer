@@ -30,17 +30,6 @@ const CreateTeamForm: React.FC<{ onSuccess?: () => void }> = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  /*
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = await dispatch(createTeam(formData));
-    if (createTeam.fulfilled.match(result)) {
-      setFormData({ name: "", description: "" });
-      if (onSuccess) onSuccess();
-    }
-  };
-  */
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await dispatch(

@@ -23,7 +23,7 @@ const CreateTeamPage = () => {
   const handleSubmit = async (data: { name: string; description?: string }) => {
     const result = await dispatch(createTeam(data));
     if (createTeam.fulfilled.match(result)) {
-      router.push("/teams");
+      router.push("/team");
     }
   };
 
@@ -51,7 +51,7 @@ const CreateTeamPage = () => {
               <CircularProgress />
             </div>
           ) : (
-            <CreateTeamForm onSuccess={() => router.push("/teams")} />
+            <CreateTeamForm onSuccess={() => router.push("/team")} />
           )}
         </div>
       </div>
