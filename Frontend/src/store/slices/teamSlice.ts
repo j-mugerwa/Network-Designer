@@ -39,7 +39,7 @@ export const createTeam = createAsyncThunk<
   { rejectValue: string }
 >("team/create", async (payload, { rejectWithValue }) => {
   try {
-    const response = await axios.post("/", payload);
+    const response = await axios.post("/team", payload);
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(
@@ -54,7 +54,7 @@ export const fetchUserTeams = createAsyncThunk<
   { rejectValue: string }
 >("team/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const response = await axios.get("/");
+    const response = await axios.get("/team");
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(
@@ -69,7 +69,7 @@ export const fetchTeamDetails = createAsyncThunk<
   { rejectValue: string }
 >("team/fetchDetails", async (teamId, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`/${teamId}`);
+    const response = await axios.get(`/team/${teamId}`);
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(
@@ -84,7 +84,7 @@ export const updateTeam = createAsyncThunk<
   { rejectValue: string }
 >("team/update", async ({ teamId, data }, { rejectWithValue }) => {
   try {
-    const response = await axios.put(`/${teamId}`, data);
+    const response = await axios.put(`/team/${teamId}`, data);
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(
@@ -99,7 +99,7 @@ export const addTeamMember = createAsyncThunk<
   { rejectValue: string }
 >("team/addMember", async ({ teamId, userId, role }, { rejectWithValue }) => {
   try {
-    const response = await axios.post(`/${teamId}/members`, {
+    const response = await axios.post(`/team/${teamId}/members`, {
       userId,
       role,
     });
@@ -117,7 +117,7 @@ export const inviteTeamMember = createAsyncThunk<
   { rejectValue: string }
 >("team/inviteMember", async ({ teamId, data }, { rejectWithValue }) => {
   try {
-    await axios.post(`/${teamId}/invite`, data);
+    await axios.post(`/team/${teamId}/invite`, data);
   } catch (error: any) {
     return rejectWithValue(
       error.response?.data?.error || "Failed to send invitation"
@@ -131,7 +131,7 @@ export const acceptTeamInvitation = createAsyncThunk<
   { rejectValue: string }
 >("team/acceptInvite", async ({ token, teamId }, { rejectWithValue }) => {
   try {
-    const response = await axios.post("/accept-invite", {
+    const response = await axios.post("/team/accept-invite", {
       token,
       teamId,
     });
@@ -149,7 +149,7 @@ export const removeTeamMember = createAsyncThunk<
   { rejectValue: string }
 >("team/removeMember", async ({ teamId, memberId }, { rejectWithValue }) => {
   try {
-    const response = await axios.delete(`/${teamId}/members/${memberId}`);
+    const response = await axios.delete(`/team/${teamId}/members/${memberId}`);
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(
@@ -167,7 +167,7 @@ export const fetchTeamDesigns = createAsyncThunk<
   { rejectValue: string }
 >("team/fetchDesigns", async ({ teamId, params }, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`/${teamId}/designs`, { params });
+    const response = await axios.get(`/team/${teamId}/designs`, { params });
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(
