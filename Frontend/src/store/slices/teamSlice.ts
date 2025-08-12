@@ -33,6 +33,7 @@ const initialState: TeamState = {
 };
 
 // Thunks
+/*
 export const createTeam = createAsyncThunk<
   Team,
   CreateTeamPayload,
@@ -40,6 +41,28 @@ export const createTeam = createAsyncThunk<
 >("team/create", async (payload, { rejectWithValue }) => {
   try {
     const response = await axios.post("/team", payload);
+    return response.data.data;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to create team"
+    );
+  }
+});
+*/
+
+export const createTeam = createAsyncThunk<
+  Team,
+  CreateTeamPayload,
+  { rejectValue: string }
+>("team/create", async (payload, { rejectWithValue }) => {
+  try {
+    const response = await axios.post("/team", {
+      name: payload.name,
+      description: payload.description,
+      // members array should contain objects with userId strings
+      // that the backend will convert to ObjectIds
+      //members: payload.members || [],
+    });
     return response.data.data;
   } catch (error: any) {
     return rejectWithValue(

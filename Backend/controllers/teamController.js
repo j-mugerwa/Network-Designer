@@ -8,6 +8,8 @@ const sendEmail = require("../utils/sendEmail");
 // @desc    Create a new team
 // @route   POST /api/teams
 // @access  Private
+
+/*
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
@@ -19,6 +21,35 @@ const createTeam = asyncHandler(async (req, res, next) => {
     members: members
       ? members.map((m) => ({
           userId: m.userId,
+          role: m.role || "member",
+        }))
+      : [],
+  });
+
+  // Populate owner details
+  await team.populate("owner", "name email avatar");
+
+  res.status(201).json({
+    status: "success",
+    data: team,
+  });
+});
+*/
+
+const createTeam = asyncHandler(async (req, res, next) => {
+  const { name, description, members } = req.body;
+
+  // Convert uid string to ObjectId
+  const createdBy = mongoose.Types.ObjectId(req.user.uid);
+
+  // Create team with creator as owner
+  const team = await Team.create({
+    name,
+    description,
+    createdBy,
+    members: members
+      ? members.map((m) => ({
+          userId: mongoose.Types.ObjectId(m.userId), // Convert member IDs too
           role: m.role || "member",
         }))
       : [],

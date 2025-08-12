@@ -57,6 +57,10 @@ const teamSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: [true, "Creator reference is required"],
+      validate: {
+        validator: (v) => mongoose.Types.ObjectId.isValid(v),
+        message: (props) => `${props.value} is not a valid ObjectId!`,
+      },
     },
     members: [teamMemberSchema],
     isActive: {
