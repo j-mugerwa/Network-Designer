@@ -98,21 +98,6 @@ const createTeam = asyncHandler(async (req, res, next) => {
 // @desc    Get all teams for user
 // @route   GET /api/teams
 // @access  Private
-/*
-const getUserTeams = asyncHandler(async (req, res, next) => {
-  const teams = await Team.find({
-    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
-  })
-    .populate("owner", "name email avatar")
-    .populate("members.userId", "name email avatar");
-
-  res.status(200).json({
-    status: "success",
-    results: teams.length,
-    data: teams,
-  });
-});
-*/
 
 /*
 const getUserTeams = asyncHandler(async (req, res, next) => {
@@ -135,21 +120,35 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 */
 
 const getUserTeams = asyncHandler(async (req, res, next) => {
-  // Convert uid to ObjectId - NEW SYNTAX
-  const userId = new mongoose.Types.ObjectId(req.user.uid);
+  try {
+    // Convert uid to ObjectId safely
+    let userId;
+    try {
+      userId = new mongoose.Types.ObjectId(req.user.uid);
+    } catch (err) {
+      return next(new AppError("Invalid user ID format", 400));
+    }
 
-  const teams = await Team.find({
-    $or: [{ createdBy: userId }, { "members.userId": userId }],
-  })
-    .populate("owner", "name email avatar")
-    .populate("members.userId", "name email avatar")
-    .lean();
+    console.log("Fetching teams for user:", req.user.uid); // Debug log
 
-  res.status(200).json({
-    status: "success",
-    results: teams.length,
-    data: teams,
-  });
+    const teams = await Team.find({
+      $or: [{ createdBy: userId }, { "members.userId": userId }],
+    })
+      .populate("owner", "name email avatar")
+      .populate("members.userId", "name email avatar")
+      .lean();
+
+    console.log("Found teams:", teams.length); // Debug log
+
+    res.status(200).json({
+      status: "success",
+      results: teams.length,
+      data: teams,
+    });
+  } catch (err) {
+    console.error("Error in getUserTeams:", err);
+    next(new AppError("Failed to fetch teams", 500));
+  }
 });
 
 // @desc    Get single team

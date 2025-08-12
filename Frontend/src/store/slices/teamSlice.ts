@@ -71,23 +71,30 @@ export const createTeam = createAsyncThunk<
   }
 });
 
-/*
+// store/slices/teamSlice.ts
 export const fetchUserTeams = createAsyncThunk<
   Team[],
   void,
   { rejectValue: string }
 >("team/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const response = await axios.get("/team");
+    console.log("Fetching teams..."); // Debug log
+    const response = await axios.get("/api/team");
+    console.log("Teams response:", response.data); // Debug log
     return response.data.data;
   } catch (error: any) {
+    console.error("Error fetching teams:", {
+      message: error.message,
+      response: error.response?.data,
+      stack: error.stack,
+    });
     return rejectWithValue(
       error.response?.data?.error || "Failed to fetch teams"
     );
   }
 });
-*/
 
+/*
 export const fetchUserTeams = createAsyncThunk<
   Team[],
   void,
@@ -104,6 +111,7 @@ export const fetchUserTeams = createAsyncThunk<
     );
   }
 });
+*/
 
 export const fetchTeamDetails = createAsyncThunk<
   Team,
