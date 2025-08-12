@@ -1,10 +1,12 @@
 // src/components/features/teams/TeamsTable.tsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import {
   fetchUserTeams,
   selectTeams,
   selectTeamLoading,
+  selectTeamError,
+  clearTeamError,
 } from "@/store/slices/teamSlice";
 import {
   Table,
@@ -21,7 +23,8 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Chip,
+  Skeleton,
+  Alert,
 } from "@mui/material";
 import { MoreVert, Edit, People, Delete } from "@mui/icons-material";
 import { useRouter } from "next/router";
@@ -31,11 +34,20 @@ const TeamsTable: React.FC = () => {
   const router = useRouter();
   const teams = useAppSelector(selectTeams);
   const loading = useAppSelector(selectTeamLoading);
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [selectedTeam, setSelectedTeam] = React.useState<string | null>(null);
+  const error = useAppSelector(selectTeamError);
 
-  React.useEffect(() => {
-    dispatch(fetchUserTeams());
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadTeams = async () => {
+      try {
+        await dispatch(fetchUserTeams());
+      } catch (err) {
+        console.error("Failed to load teams:", err);
+      }
+    };
+    loadTeams();
   }, [dispatch]);
 
   const handleMenuOpen = (
@@ -70,26 +82,22 @@ const TeamsTable: React.FC = () => {
     handleMenuClose();
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "owner":
-        return "primary";
-      case "admin":
-        return "secondary";
-      default:
-        return "default";
-    }
-  };
+  if (error) {
+    return (
+      <Box p={4} textAlign="center">
+        <Alert severity="error" onClose={() => dispatch(clearTeamError())}>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="200px"
-      >
-        <CircularProgress />
+      <Box sx={{ p: 3 }}>
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} variant="rectangular" height={56} sx={{ mb: 1 }} />
+        ))}
       </Box>
     );
   }
@@ -114,37 +122,35 @@ const TeamsTable: React.FC = () => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {teams.map((team) => {
-            return (
-              <TableRow key={team.id}>
-                <TableCell>
-                  <Typography fontWeight="medium">{team.name}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="textSecondary">
-                    {team.description || "No description"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    startIcon={<People />}
-                    size="small"
-                    onClick={() => router.push(`/team/${team.id}/members`)}
-                  >
-                    {team.members.length} members
-                  </Button>
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    aria-label="actions"
-                    onClick={(e) => handleMenuOpen(e, team.id)}
-                  >
-                    <MoreVert />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+          {teams.map((team) => (
+            <TableRow key={team.id} hover>
+              <TableCell>
+                <Typography fontWeight="medium">{team.name}</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color="textSecondary">
+                  {team.description || "No description"}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Button
+                  startIcon={<People />}
+                  size="small"
+                  onClick={() => router.push(`/teams/${team.id}/members`)}
+                >
+                  {team.members.length} members
+                </Button>
+              </TableCell>
+              <TableCell>
+                <IconButton
+                  aria-label="team actions"
+                  onClick={(e) => handleMenuOpen(e, team.id)}
+                >
+                  <MoreVert />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
 
@@ -152,6 +158,8 @@ const TeamsTable: React.FC = () => {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
         <MenuItem onClick={handleEdit}>
           <Edit fontSize="small" sx={{ mr: 1 }} /> Edit

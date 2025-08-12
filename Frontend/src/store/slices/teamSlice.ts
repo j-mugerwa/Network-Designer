@@ -71,6 +71,7 @@ export const createTeam = createAsyncThunk<
   }
 });
 
+/*
 export const fetchUserTeams = createAsyncThunk<
   Team[],
   void,
@@ -80,6 +81,24 @@ export const fetchUserTeams = createAsyncThunk<
     const response = await axios.get("/team");
     return response.data.data;
   } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to fetch teams"
+    );
+  }
+});
+*/
+
+export const fetchUserTeams = createAsyncThunk<
+  Team[],
+  void,
+  { rejectValue: string }
+>("team/fetchAll", async (_, { rejectWithValue }) => {
+  try {
+    const response = await axios.get("/team");
+    console.log("Teams response:", response.data); // Debug log
+    return response.data.data;
+  } catch (error: any) {
+    console.error("Error fetching teams:", error);
     return rejectWithValue(
       error.response?.data?.error || "Failed to fetch teams"
     );

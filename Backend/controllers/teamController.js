@@ -4,6 +4,7 @@ const NetworkDesign = require("../models/NetworkDesignModel");
 const AppError = require("../utils/appError");
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
+const mongoose = require("mongoose");
 
 // @desc    Create a new team
 // @route   POST /api/teams
@@ -67,12 +68,32 @@ const createTeam = asyncHandler(async (req, res, next) => {
 // @desc    Get all teams for user
 // @route   GET /api/teams
 // @access  Private
+/*
 const getUserTeams = asyncHandler(async (req, res, next) => {
   const teams = await Team.find({
     $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
   })
     .populate("owner", "name email avatar")
     .populate("members.userId", "name email avatar");
+
+  res.status(200).json({
+    status: "success",
+    results: teams.length,
+    data: teams,
+  });
+});
+*/
+
+const getUserTeams = asyncHandler(async (req, res, next) => {
+  // Convert uid to ObjectId
+  const userId = mongoose.Types.ObjectId(req.user.uid);
+
+  const teams = await Team.find({
+    $or: [{ createdBy: userId }, { "members.userId": userId }],
+  })
+    .populate("owner", "name email avatar")
+    .populate("members.userId", "name email avatar")
+    .lean(); // Use lean() for better performance
 
   res.status(200).json({
     status: "success",

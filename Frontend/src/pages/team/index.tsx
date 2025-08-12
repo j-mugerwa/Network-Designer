@@ -1,36 +1,16 @@
 // src/pages/teams/index.tsx
 import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchUserTeams,
-  selectTeams,
-  selectTeamLoading,
-  selectTeamError,
-  clearTeamError,
-} from "@/store/slices/teamSlice";
-import { RootState } from "@/store/store";
-import type { AppDispatch } from "@/store/store";
-import TeamsTable from "@/components/features/team/TeamsTable";
-import { Alert, CircularProgress, Box, Typography } from "@mui/material";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/store/store";
+import { Alert, Box, Button, Typography } from "@mui/material";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@mui/material";
+import TeamsTable from "@/components/features/team/TeamsTable";
 import { useRouter } from "next/router";
 
 const TeamsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const teams = useSelector(selectTeams);
-  const loading = useSelector(selectTeamLoading);
-  const error = useSelector(selectTeamError);
-
-  useEffect(() => {
-    dispatch(fetchUserTeams());
-  }, [dispatch]);
-
-  const handleClearError = () => {
-    dispatch(clearTeamError());
-  };
 
   const handleCreateTeam = () => {
     router.push("/team/create");
@@ -41,42 +21,28 @@ const TeamsPage = () => {
       <div className="container mx-auto px-4 py-8">
         <PageHeader title="My Teams" subtitle="View and manage your teams" />
 
-        {error && (
-          <Alert severity="error" onClose={handleClearError} className="mb-4">
-            {typeof error === "string" ? error : "Failed to load teams"}
-          </Alert>
-        )}
-
-        {loading ? (
-          <div className="flex justify-center">
-            <CircularProgress />
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {/* Table Header with Create Button */}
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-              p={2}
-              borderBottom="1px solid rgba(224, 224, 224, 1)"
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            p={2}
+            borderBottom="1px solid rgba(224, 224, 224, 1)"
+          >
+            <Typography variant="h6" component="div">
+              Teams
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleCreateTeam}
             >
-              <Typography variant="h6" component="div">
-                Teams
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleCreateTeam}
-                sx={{ ml: 2 }}
-              >
-                Create Team
-              </Button>
-            </Box>
+              Create Team
+            </Button>
+          </Box>
 
-            <TeamsTable />
-          </div>
-        )}
+          <TeamsTable />
+        </div>
       </div>
     </AppLayout>
   );
