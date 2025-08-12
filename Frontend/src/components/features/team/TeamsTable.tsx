@@ -24,11 +24,11 @@ import {
   Chip,
 } from "@mui/material";
 import { MoreVert, Edit, People, Delete } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/router";
 
 const TeamsTable: React.FC = () => {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  const router = useRouter();
   const teams = useAppSelector(selectTeams);
   const loading = useAppSelector(selectTeamLoading);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -53,14 +53,14 @@ const TeamsTable: React.FC = () => {
 
   const handleEdit = () => {
     if (selectedTeam) {
-      navigate(`/teams/${selectedTeam}/edit`);
+      router.push(`/teams/${selectedTeam}/edit`);
     }
     handleMenuClose();
   };
 
   const handleManageMembers = () => {
     if (selectedTeam) {
-      navigate(`/teams/${selectedTeam}/members`);
+      router.push(`/teams/${selectedTeam}/members`);
     }
     handleMenuClose();
   };
@@ -109,14 +109,12 @@ const TeamsTable: React.FC = () => {
           <TableRow>
             <TableCell>Team Name</TableCell>
             <TableCell>Description</TableCell>
-            {/*<TableCell>Your Role</TableCell>*/}
             <TableCell>Members</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {teams.map((team) => {
-            //const userRole = team.members.find(m => m.userId === /* current user ID */)?.role || 'member';
             return (
               <TableRow key={team.id}>
                 <TableCell>
@@ -127,20 +125,11 @@ const TeamsTable: React.FC = () => {
                     {team.description || "No description"}
                   </Typography>
                 </TableCell>
-                {/*
-                <TableCell>
-                  <Chip
-                    label={userRole}
-                    color={getRoleColor(userRole)}
-                    size="small"
-                  />
-                </TableCell>
-                */}
                 <TableCell>
                   <Button
                     startIcon={<People />}
                     size="small"
-                    onClick={() => navigate(`/teams/${team.id}/members`)}
+                    onClick={() => router.push(`/team/${team.id}/members`)}
                   >
                     {team.members.length} members
                   </Button>

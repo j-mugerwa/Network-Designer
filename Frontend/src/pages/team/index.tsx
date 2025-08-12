@@ -11,7 +11,7 @@ import {
 import { RootState } from "@/store/store";
 import type { AppDispatch } from "@/store/store";
 import TeamsTable from "@/components/features/team/TeamsTable";
-import { Alert, CircularProgress } from "@mui/material";
+import { Alert, CircularProgress, Box, Typography } from "@mui/material";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@mui/material";
@@ -33,7 +33,7 @@ const TeamsPage = () => {
   };
 
   const handleCreateTeam = () => {
-    router.push("/teams/create");
+    router.push("/team/create");
   };
 
   return (
@@ -53,6 +53,27 @@ const TeamsPage = () => {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
+            {/* Table Header with Create Button */}
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+              p={2}
+              borderBottom="1px solid rgba(224, 224, 224, 1)"
+            >
+              <Typography variant="h6" component="div">
+                Teams
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleCreateTeam}
+                sx={{ ml: 2 }}
+              >
+                Create Team
+              </Button>
+            </Box>
+
             <TeamsTable />
           </div>
         )}
