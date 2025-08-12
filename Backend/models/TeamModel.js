@@ -87,10 +87,9 @@ const teamSchema = new mongoose.Schema(
 teamSchema.index({ name: 1 });
 teamSchema.index({ createdBy: 1 });
 teamSchema.index({ isActive: 1 });
-
 // For faster sorting
 teamSchema.index({ "lastModified.at": -1 });
-teamSchema.index({ "members.userId": 1, "lastModified.at": -1 });
+teamSchema.index({ "members.userId": 1, "members.role": 1 });
 
 // User takes a single role in a team
 //teamSchema.index({ "members.userId": 1, "members.role": 1 });
@@ -120,21 +119,6 @@ teamSchema.methods.removeDesign = async function (designId) {
 };
 
 // Pre-save hook to ensure creator is a member
-/*
-teamSchema.pre("save", function (next) {
-  const creatorIsMember = this.members.some(
-    (m) => m.userId === this.createdBy // Direct string comparison
-  );
-
-  if (!creatorIsMember) {
-    this.members.push({
-      userId: this.createdBy,
-      role: "owner",
-    });
-  }
-  next();
-});
-*/
 
 teamSchema.pre("save", function (next) {
   // Only add creator as member if not already present
