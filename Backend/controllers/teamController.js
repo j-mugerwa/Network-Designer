@@ -15,32 +15,6 @@ const mongoose = require("mongoose");
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
-  // Use Firebase UID directly
-  const team = await Team.create({
-    name,
-    description,
-    createdBy: req.user.uid, // Store as string
-    members: members
-      ? members.map((m) => ({
-          userId: m.userId, // Store as string
-          role: m.role || "member",
-        }))
-      : [],
-  });
-
-  // Populate owner details.
-  await team.populate("owner", "name email");
-
-  res.status(201).json({
-    status: "success",
-    data: team,
-  });
-});
-*/
-
-const createTeam = asyncHandler(async (req, res, next) => {
-  const { name, description, members } = req.body;
-
   // First verify the user exists in your database
   const userExists = await User.findOne({ firebaseUID: req.user.uid });
 
@@ -61,6 +35,30 @@ const createTeam = asyncHandler(async (req, res, next) => {
   });
 
   // Modified population to use firebaseUID
+  await team.populate({
+    path: "owner",
+    match: { firebaseUID: req.user.uid },
+    select: "name email avatar",
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: team,
+  });
+});
+*/
+
+const createTeam = asyncHandler(async (req, res, next) => {
+  const { name, description, members } = req.body;
+
+  const team = await Team.create({
+    name,
+    description,
+    createdBy: req.user.uid,
+    members: members || [], // Members can be added later
+  });
+
+  // The pre-save hook will automatically add creator as owner
   await team.populate({
     path: "owner",
     match: { firebaseUID: req.user.uid },

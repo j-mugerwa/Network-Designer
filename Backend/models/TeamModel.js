@@ -92,8 +92,8 @@ teamSchema.index({ isActive: 1 });
 teamSchema.index({ "lastModified.at": -1 });
 teamSchema.index({ "members.userId": 1, "lastModified.at": -1 });
 
-// Ensure each user is only added once to a team
-teamSchema.index({ "members.userId": 1 }, { unique: true });
+// User takes a single role in a team
+teamSchema.index({ "members.userId": 1, "members.role": 1 });
 
 // Virtual populate
 teamSchema.virtual("owner", {
@@ -119,10 +119,25 @@ teamSchema.methods.removeDesign = async function (designId) {
 };
 
 // Pre-save hook to ensure creator is a member
+/*
 teamSchema.pre("save", function (next) {
   const creatorIsMember = this.members.some(
     (m) => m.userId === this.createdBy // Direct string comparison
   );
+
+  if (!creatorIsMember) {
+    this.members.push({
+      userId: this.createdBy,
+      role: "owner",
+    });
+  }
+  next();
+});
+*/
+
+teamSchema.pre("save", function (next) {
+  // Only add creator as member if not already present
+  const creatorIsMember = this.members.some((m) => m.userId === this.createdBy);
 
   if (!creatorIsMember) {
     this.members.push({
