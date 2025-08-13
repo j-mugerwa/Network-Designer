@@ -9,7 +9,6 @@ import {
   Alert,
   CircularProgress,
   MenuItem,
-  SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -36,35 +35,24 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
-  // Unified handler that works for both input and select fields
+  // Handler specifically for team selection
+  const handleTeamChange: React.ChangeEventHandler<
+    HTMLInputElement | HTMLTextAreaElement
+  > = (e) => {
+    const value = (e.target as { value: string }).value;
+    setFormData((prev) => ({ ...prev, teamId: value }));
+  };
+
+  // Handler for all other fields
   const handleChange = (
-    e:
-      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-      | SelectChangeEvent<string>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const target = e.target as { name: keyof typeof formData; value: unknown };
-
+    const { name, value } = e.target;
     setFormData((prev) => {
-      // Create a new object with the previous state
-      const newState = { ...prev };
-
-      // Handle each field type specifically
-      switch (target.name) {
-        case "role":
-          newState.role = target.value as "member" | "admin";
-          break;
-        case "teamId":
-        case "email":
-        case "message":
-          newState[target.name] = target.value as string;
-          break;
-        default:
-          // This ensures we handle all possible cases
-          const _exhaustiveCheck: never = target.name;
-          return _exhaustiveCheck;
+      if (name === "role") {
+        return { ...prev, [name]: value as "member" | "admin" };
       }
-
-      return newState;
+      return { ...prev, [name]: value };
     });
   };
 
@@ -99,7 +87,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
       <Typography variant="h6" gutterBottom>
-        Invite New Member
+        Invite A New Member
       </Typography>
 
       {error && (
@@ -120,7 +108,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
             label="Select Team"
             name="teamId"
             value={formData.teamId}
-            onChange={handleChange}
+            onChange={handleTeamChange}
             required
           >
             <MenuItem value="" disabled>
