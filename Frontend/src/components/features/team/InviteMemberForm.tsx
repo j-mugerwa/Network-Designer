@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { inviteTeamMember, clearTeamError } from "@/store/slices/teamSlice";
 import {
@@ -9,7 +9,6 @@ import {
   Alert,
   CircularProgress,
   MenuItem,
-  SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -37,12 +36,16 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
   });
 
   const handleChange = (
-    e:
-      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-      | SelectChangeEvent<string>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | { name?: string; value: unknown }
+    >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name as string]:
+        name === "role" ? (value as "member" | "admin") : (value as string),
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,7 +74,6 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     }
   };
 
-  // Check if form is valid
   const isFormValid = !!formData.teamId && !!formData.email && !processing;
 
   return (
@@ -105,8 +107,8 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
               Select a team
             </MenuItem>
             {teams.map((team) => (
-              <MenuItem key={team?.id || ""} value={team?.id?.toString() || ""}>
-                {team?.name || "Unnamed Team"}
+              <MenuItem key={team.id} value={team.id}>
+                {team.name}
               </MenuItem>
             ))}
           </TextField>
