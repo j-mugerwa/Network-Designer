@@ -9,6 +9,7 @@ import {
   Alert,
   CircularProgress,
   MenuItem,
+  SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -35,25 +36,24 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
-  // Handler specifically for team selection
-  const handleTeamChange: React.ChangeEventHandler<
-    HTMLInputElement | HTMLTextAreaElement
-  > = (e) => {
-    const value = (e.target as { value: string }).value;
-    setFormData((prev) => ({ ...prev, teamId: value }));
-  };
+  // Type-safe adapter for Select fields
+  const handleSelectChange =
+    (field: keyof typeof formData) => (e: { target: { value: unknown } }) => {
+      setFormData((prev) => ({
+        ...prev,
+        [field]:
+          field === "role"
+            ? (e.target.value as "member" | "admin")
+            : (e.target.value as string),
+      }));
+    };
 
-  // Handler for all other fields
-  const handleChange = (
+  // Regular input handler
+  const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      if (name === "role") {
-        return { ...prev, [name]: value as "member" | "admin" };
-      }
-      return { ...prev, [name]: value };
-    });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,9 +106,8 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
             select
             fullWidth
             label="Select Team"
-            name="teamId"
             value={formData.teamId}
-            onChange={handleTeamChange}
+            onChange={handleSelectChange("teamId")}
             required
           >
             <MenuItem value="" disabled>
@@ -129,7 +128,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
             name="email"
             type="email"
             value={formData.email}
-            onChange={handleChange}
+            onChange={handleInputChange}
             required
           />
         </GridItem>
@@ -139,9 +138,8 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
             select
             fullWidth
             label="Role"
-            name="role"
             value={formData.role}
-            onChange={handleChange}
+            onChange={handleSelectChange("role")}
           >
             <MenuItem value="member">Member</MenuItem>
             <MenuItem value="admin">Admin</MenuItem>
@@ -154,7 +152,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
             label="Personal Message (Optional)"
             name="message"
             value={formData.message}
-            onChange={handleChange}
+            onChange={handleInputChange}
             multiline
             rows={3}
           />
