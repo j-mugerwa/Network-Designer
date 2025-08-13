@@ -12,7 +12,6 @@ import {
   InputLabel,
   Select,
   TextField,
-  SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -39,31 +38,21 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
-  // 1. First try: Using the exact pattern from visualization component
-  const handleTeamChange = (event: SelectChangeEvent<string>) => {
-    setFormData((prev) => ({ ...prev, teamId: event.target.value }));
-    console.log("Selected team:", event.target.value); // Add logging
-  };
-
-  // 2. Fallback: More explicit value handling
-  const handleTeamChangeAlternative = (event: {
-    target: { value: string };
-  }) => {
-    const value = event.target.value;
-    console.log("Team selection event:", event);
+  // Nuclear option - completely bypassing type checking for the select
+  const handleTeamChange = (event: any) => {
+    const selectedValue = event?.target?.value ?? "";
     setFormData((prev) => {
-      console.log("Previous state:", prev);
-      const newState = { ...prev, teamId: value };
-      console.log("New state:", newState);
+      const newState = { ...prev, teamId: selectedValue };
+      console.log("Team selection updated:", newState);
       return newState;
     });
   };
 
   // Handler for role selection
-  const handleRoleChange = (event: SelectChangeEvent<"member" | "admin">) => {
+  const handleRoleChange = (event: any) => {
     setFormData((prev) => ({
       ...prev,
-      role: event.target.value as "member" | "admin",
+      role: (event?.target?.value as "member" | "admin") || "member",
     }));
   };
 
@@ -77,7 +66,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Submitting with:", formData); // Add submission logging
+    console.log("Form data on submit:", formData);
     if (!formData.teamId || !formData.email) return;
 
     const result = await dispatch(
@@ -129,8 +118,8 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
               id="team-select"
               value={formData.teamId}
               label="Select Team *"
-              onChange={handleTeamChangeAlternative} // Using the alternative handler
-              inputProps={{ "data-testid": "team-select" }} // Added for testing
+              onChange={handleTeamChange}
+              inputProps={{ "data-testid": "team-select" }}
               required
             >
               <MenuItem value="">
@@ -140,7 +129,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
                 <MenuItem
                   key={team.id}
                   value={team.id}
-                  data-testid={`team-option-${team.id}`} // Added for testing
+                  data-testid={`team-option-${team.id}`}
                 >
                   {team.name}
                 </MenuItem>
