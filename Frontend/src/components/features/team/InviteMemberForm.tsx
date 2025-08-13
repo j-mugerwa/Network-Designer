@@ -9,6 +9,9 @@ import {
   Alert,
   CircularProgress,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
   SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
@@ -36,19 +39,18 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
-  // Type-safe adapter for Select fields
-  const handleSelectChange =
-    (field: keyof typeof formData) => (e: { target: { value: unknown } }) => {
-      setFormData((prev) => ({
-        ...prev,
-        [field]:
-          field === "role"
-            ? (e.target.value as "member" | "admin")
-            : (e.target.value as string),
-      }));
-    };
+  // Directly using SelectChangeEvent like in visualization component
+  const handleTeamChange = (event: SelectChangeEvent) => {
+    setFormData((prev) => ({ ...prev, teamId: event.target.value as string }));
+  };
 
-  // Regular input handler
+  const handleRoleChange = (event: SelectChangeEvent) => {
+    setFormData((prev) => ({
+      ...prev,
+      role: event.target.value as "member" | "admin",
+    }));
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -102,21 +104,26 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <GridItem>
-          <TextField
-            select
-            fullWidth
-            label="Select Team"
-            value={formData.teamId}
-            onChange={handleSelectChange("teamId")}
-            required
-          >
-            <MenuItem value="">Select a team</MenuItem>
-            {teams.map((team) => (
-              <MenuItem key={team.id} value={team.id}>
-                {team.name}
+          <FormControl fullWidth>
+            <InputLabel id="team-select-label">Select Team *</InputLabel>
+            <Select
+              labelId="team-select-label"
+              id="team-select"
+              value={formData.teamId}
+              label="Select Team *"
+              onChange={handleTeamChange}
+              required
+            >
+              <MenuItem value="">
+                <em>Select a team</em>
               </MenuItem>
-            ))}
-          </TextField>
+              {teams.map((team) => (
+                <MenuItem key={team.id} value={team.id}>
+                  {team.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </GridItem>
 
         <GridItem>
@@ -132,16 +139,19 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
         </GridItem>
 
         <GridItem sx={{ width: "50%" }}>
-          <TextField
-            select
-            fullWidth
-            label="Role"
-            value={formData.role}
-            onChange={handleSelectChange("role")}
-          >
-            <MenuItem value="member">Member</MenuItem>
-            <MenuItem value="admin">Admin</MenuItem>
-          </TextField>
+          <FormControl fullWidth>
+            <InputLabel id="role-select-label">Role</InputLabel>
+            <Select
+              labelId="role-select-label"
+              id="role-select"
+              value={formData.role}
+              label="Role"
+              onChange={handleRoleChange}
+            >
+              <MenuItem value="member">Member</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+            </Select>
+          </FormControl>
         </GridItem>
 
         <GridItem>
