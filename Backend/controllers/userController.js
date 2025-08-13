@@ -576,7 +576,8 @@ const loginUser = asyncHandler(async (req, res) => {
         if (isFirstLogin) {
           await sendEmail(
             "First Login Notification",
-            `Welcome ${user.name}, we noticed this is your first login to our platform. Enjoy the service`,
+            `<p>Welcome ${user.name}, we noticed this is your first login to our platform. </p>
+            <p>Enjoy the service and remember to tell your friends about the platform. </p>`,
             user.email
           );
         }
@@ -870,7 +871,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     // Note: Firebase handles token verification internally when the link is used
     // This endpoint is for the frontend to submit the new password
 
-    // 2. Get email from token (you might need to parse it from your stored token)
+    // 2. Get email from token We can parse it from the stored token
     // In production, you'd verify the token properly
     const email = req.body.email; // Should come from your frontend form
 

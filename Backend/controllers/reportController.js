@@ -14,68 +14,6 @@ const fs = require("fs");
 // @route   POST /api/reports/full/:designId
 // @access  Private
 
-/*
-const generateProfessionalReport = asyncHandler(async (req, res) => {
-  try {
-    const design = await NetworkDesign.findOne({
-      _id: req.params.designId,
-      userId: req.user._id,
-    }).populate("devices");
-
-    if (!design) {
-      return res.status(404).json({
-        success: false,
-        error: "Design not found or access denied",
-      });
-    }
-
-    const reportContent = await ReportGenerator.generateProfessionalReport(
-      design
-    );
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const pdfFileName = `professional_report_${timestamp}.pdf`;
-    const pdfPath = `/reports/${pdfFileName}`;
-    const fullPath = path.join(__dirname, "..", "reports", pdfFileName);
-
-    // Ensure reports directory exists
-    if (!fs.existsSync(path.join(__dirname, "..", "reports"))) {
-      fs.mkdirSync(path.join(__dirname, "..", "reports"));
-    }
-
-    // Generate and save PDF
-    await generateProfessionalPDF(reportContent, fullPath);
-
-    const report = await NetworkReport.create({
-      designId: design._id,
-      userId: req.user._id,
-      reportType: "professional",
-      title: reportContent.title,
-      content: reportContent,
-      format: "pdf",
-      downloadUrl: pdfPath,
-      generatedAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-    });
-
-    res.json({
-      success: true,
-      message: "Professional report generated successfully",
-      data: report,
-    });
-  } catch (error) {
-    console.error("Professional report error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to generate professional report",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
-
 const generateProfessionalReport = asyncHandler(async (req, res) => {
   try {
     const design = await NetworkDesign.findOne({

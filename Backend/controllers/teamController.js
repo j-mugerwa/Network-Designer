@@ -51,6 +51,15 @@ const createTeam = asyncHandler(async (req, res, next) => {
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
 
+  //Limit To 10 teams.
+  const MAX_TEAMS_PER_USER = 10;
+  const userTeamsCount = await Team.countDocuments({ createdBy: req.user.uid });
+  if (userTeamsCount >= MAX_TEAMS_PER_USER) {
+    return next(
+      new AppError(`Maximum of ${MAX_TEAMS_PER_USER} teams allowed`, 400)
+    );
+  }
+
   const team = await Team.create({
     name,
     description,
@@ -74,25 +83,6 @@ const createTeam = asyncHandler(async (req, res, next) => {
 // @desc    Get all teams for user
 // @route   GET /api/teams
 // @access  Private
-
-/*
-const getUserTeams = asyncHandler(async (req, res, next) => {
-  const teams = await Team.find({
-    $or: [
-      { createdBy: req.user.uid }, // Direct string comparison
-      { "members.userId": req.user.uid }, // Direct string comparison
-    ],
-  })
-    .populate("owner", "name email avatar")
-    .lean();
-
-  res.status(200).json({
-    status: "success",
-    results: teams.length,
-    data: teams,
-  });
-});
-*/
 
 const getUserTeams = asyncHandler(async (req, res, next) => {
   const teams = await Team.find({
