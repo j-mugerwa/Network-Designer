@@ -9,6 +9,7 @@ import {
   Alert,
   CircularProgress,
   MenuItem,
+  SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -35,17 +36,36 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
+  // Unified handler that works for both input and select fields
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | { name?: string; value: unknown }
-    >
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+      | SelectChangeEvent<string>
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name as string]:
-        name === "role" ? (value as "member" | "admin") : (value as string),
-    }));
+    const target = e.target as { name: keyof typeof formData; value: unknown };
+
+    setFormData((prev) => {
+      // Create a new object with the previous state
+      const newState = { ...prev };
+
+      // Handle each field type specifically
+      switch (target.name) {
+        case "role":
+          newState.role = target.value as "member" | "admin";
+          break;
+        case "teamId":
+        case "email":
+        case "message":
+          newState[target.name] = target.value as string;
+          break;
+        default:
+          // This ensures we handle all possible cases
+          const _exhaustiveCheck: never = target.name;
+          return _exhaustiveCheck;
+      }
+
+      return newState;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
