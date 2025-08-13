@@ -92,7 +92,6 @@ teamSchema.index({ "lastModified.at": -1 });
 teamSchema.index({ "members.userId": 1, "members.role": 1 });
 
 // User takes a single role in a team
-//teamSchema.index({ "members.userId": 1, "members.role": 1 });
 teamSchema.index({ "members.role": 1 });
 
 // Virtual populate

@@ -39,7 +39,9 @@ const getDashboardData = asyncHandler(async (req, res) => {
       Design.countDocuments({ userId: userIdObj, optimized: true }),
       //Design.countDocuments({ userId: userIdObj, visualized: true }),
       NetworkTopology.countDocuments({ userId: userIdObj }),
-      Team.countDocuments({ owner: userIdObj }),
+      Team.countDocuments({
+        createdBy: userId,
+      }),
 
       // Invitations breakdown
       Invitation.aggregate([

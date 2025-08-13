@@ -65,14 +65,14 @@ const TeamsTable: React.FC = () => {
 
   const handleEdit = () => {
     if (selectedTeam) {
-      router.push(`/teams/${selectedTeam}/edit`);
+      router.push(`/team/${selectedTeam}/edit`);
     }
     handleMenuClose();
   };
 
   const handleManageMembers = () => {
     if (selectedTeam) {
-      router.push(`/teams/${selectedTeam}/members`);
+      router.push(`/team/${selectedTeam}/members`);
     }
     handleMenuClose();
   };
