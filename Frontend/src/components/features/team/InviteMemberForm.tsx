@@ -110,9 +110,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
             onChange={handleSelectChange("teamId")}
             required
           >
-            <MenuItem value="" disabled>
-              Select a team
-            </MenuItem>
+            <MenuItem value="">Select a team</MenuItem>
             {teams.map((team) => (
               <MenuItem key={team.id} value={team.id}>
                 {team.name}
