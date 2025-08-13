@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { inviteTeamMember, clearTeamError } from "@/store/slices/teamSlice";
 import {
-  TextField,
   Button,
   Box,
   Typography,
@@ -12,7 +11,7 @@ import {
   FormControl,
   InputLabel,
   Select,
-  SelectChangeEvent,
+  TextField,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -39,18 +38,19 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
-  // Directly using SelectChangeEvent like in visualization component
-  const handleTeamChange = (event: SelectChangeEvent) => {
-    setFormData((prev) => ({ ...prev, teamId: event.target.value as string }));
+  // Handler for team selection (using the visualization component pattern)
+  const handleTeamChange = (event: { target: { value: string } }) => {
+    setFormData((prev) => ({ ...prev, teamId: event.target.value }));
   };
 
-  const handleRoleChange = (event: SelectChangeEvent) => {
-    setFormData((prev) => ({
-      ...prev,
-      role: event.target.value as "member" | "admin",
-    }));
+  // Handler for role selection
+  const handleRoleChange = (event: {
+    target: { value: "member" | "admin" };
+  }) => {
+    setFormData((prev) => ({ ...prev, role: event.target.value }));
   };
 
+  // Handler for regular text inputs
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
