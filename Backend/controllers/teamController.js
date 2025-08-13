@@ -1,5 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Team = require("../models/TeamModel");
+const Invitation = require("../models/InvitationModel");
 const User = require("../models/UserModel");
 const NetworkDesign = require("../models/NetworkDesignModel");
 const AppError = require("../utils/appError");
@@ -197,88 +198,153 @@ const addTeamMember = asyncHandler(async (req, res, next) => {
 // @desc    Invite user to team via email
 // @route   POST /api/teams/:id/invite
 // @access  Private (Team owner/admins only)
+
 const inviteToTeam = asyncHandler(async (req, res, next) => {
   const { email, role } = req.body;
   const teamId = req.params.id;
 
-  // Verify permissions
+  // Verify permissions and get team
   const team = await Team.findOne({
     _id: teamId,
     $or: [
       { createdBy: req.user.uid },
       { "members.userId": req.user.uid, "members.role": "admin" },
     ],
-  });
+  }).populate("owner", "company");
 
   if (!team) {
     return next(AppError.unauthorized("No permission to invite users"));
   }
 
-  // Check if user already exists
-  const User = require("../models/UserModel");
-  const existingUser = await User.findOne({ email });
+  // Check if invitation already exists and is pending
+  const existingInvite = await Invitation.findOne({
+    email: email.toLowerCase(),
+    team: teamId,
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  });
 
-  if (
-    existingUser &&
-    team.members.some((m) => m.userId.equals(existingUser._id))
-  ) {
-    return next(new AppError("User is already a team member", 400));
+  if (existingInvite) {
+    return next(
+      new AppError("Pending invitation already exists for this user", 400)
+    );
   }
 
-  // Generate token
+  // Generate secure token
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Add invitation
-  team.invitations.push({ email, token, role, expiresAt });
-  await team.save();
+  // Create invitation record
+  const invitation = await Invitation.create({
+    email: email.toLowerCase(),
+    token,
+    role: role || "member",
+    company: team.owner.company, // Inherit company from team owner
+    inviterId: req.user.uid,
+    team: teamId,
+    expiresAt,
+  });
 
-  // Send email
-  const inviteUrl = `${process.env.FRONTEND_URL}/teams/accept-invite?token=${token}&team=${teamId}`;
+  // Check if user exists
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  const isNewUser = !existingUser;
 
-  await sendEmail(
-    `Invitation to join ${team.name}`,
-    `You've been invited to join ${team.name}. <a href="${inviteUrl}">Click here</a> to accept.`,
-    email
-  );
+  // Send appropriate email
+  const inviteUrl = `${process.env.FRONTEND_URL}/accept-invite?token=${token}`;
+
+  if (isNewUser) {
+    await sendEmail(
+      `Invitation to join ${team.owner.company} on Network Designer`,
+      `You've been invited to join ${team.owner.company}'s team on Network Designer.
+      <a href="${inviteUrl}">Click here</a> to create your account and join.`,
+      email
+    );
+  } else {
+    await sendEmail(
+      `Invitation to join ${team.name}`,
+      `You've been invited to join ${team.name}.
+      <a href="${inviteUrl}">Click here</a> to accept the invitation.`,
+      email
+    );
+  }
 
   res.status(200).json({
     status: "success",
     message: "Invitation sent",
+    isNewUser, // Frontend can use this for messaging if needed
   });
 });
 
 // @desc    Accept team invitation
 // @route   POST /api/teams/accept-invite
 // @access  Private
+
 const acceptInvite = asyncHandler(async (req, res, next) => {
-  const { token, teamId } = req.body;
+  const { token, password } = req.body;
 
-  const team = await Team.findOne({
-    _id: teamId,
-    "invitations.token": token,
-    "invitations.expiresAt": { $gt: new Date() },
-  });
+  // Verify token
+  const invitation = await Invitation.findOne({
+    token,
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  }).populate("team");
 
-  if (!team) {
+  if (!invitation) {
     return next(new AppError("Invalid or expired invitation", 400));
   }
 
-  const invitation = team.invitations.find((inv) => inv.token === token);
+  // Check if user exists
+  let user = await User.findOne({ email: invitation.email });
+
+  if (!user) {
+    // New user registration flow
+    if (!password) {
+      return res.status(200).json({
+        status: "registration_required",
+        email: invitation.email,
+        company: invitation.company,
+      });
+    }
+
+    // Create new user
+    user = await User.create({
+      email: invitation.email,
+      company: invitation.company,
+      // Other registration fields as needed
+      firebaseUID: (
+        await admin.auth().createUser({
+          email: invitation.email,
+          password,
+          emailVerified: true,
+        })
+      ).uid,
+    });
+
+    // Update invitation with new user ID
+    invitation.registeredUserId = user._id;
+  }
 
   // Add user to team
+  const team = await Team.findById(invitation.team._id);
   team.members.push({
-    userId: req.user.uid,
+    userId: user._id,
     role: invitation.role,
   });
-
-  // Remove invitation
-  team.invitations = team.invitations.filter((inv) => inv.token !== token);
   await team.save();
+
+  // Update invitation status
+  invitation.status = "accepted";
+  await invitation.save();
+
+  // Generate auth token for immediate login
+  const authToken = await admin.auth().createCustomToken(user.firebaseUID);
 
   res.status(200).json({
     status: "success",
-    data: team,
+    data: {
+      team: team._id,
+      authToken,
+    },
   });
 });
 

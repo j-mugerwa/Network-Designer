@@ -20,6 +20,8 @@ interface TeamState {
   processing: boolean;
   error: string | null;
   lastOperation: string | null;
+  pendingInvitations: TeamInvitation[];
+  invitationStatus: "idle" | "checking" | "registration_required";
 }
 
 const initialState: TeamState = {
@@ -30,6 +32,8 @@ const initialState: TeamState = {
   processing: false,
   error: null,
   lastOperation: null,
+  pendingInvitations: [],
+  invitationStatus: "idle",
 };
 
 // Thunks
@@ -142,6 +146,7 @@ export const addTeamMember = createAsyncThunk<
   }
 });
 
+/*
 export const inviteTeamMember = createAsyncThunk<
   void,
   { teamId: string; data: InviteMemberPayload },
@@ -155,24 +160,91 @@ export const inviteTeamMember = createAsyncThunk<
     );
   }
 });
+*/
 
-export const acceptTeamInvitation = createAsyncThunk<
-  Team,
-  { token: string; teamId: string },
+export const inviteTeamMember = createAsyncThunk<
+  { isNewUser: boolean }, // Return whether this is a new user
+  { teamId: string; data: InviteMemberPayload & { company?: string } },
   { rejectValue: string }
->("team/acceptInvite", async ({ token, teamId }, { rejectWithValue }) => {
+>(
+  "team/inviteMember",
+  async ({ teamId, data }, { rejectWithValue, getState }) => {
+    try {
+      // Get company from current user if not provided
+      const state = getState() as RootState;
+      const company = data.company || state.user.currentUser?.company;
+
+      const response = await axios.post(`/team/${teamId}/invite`, {
+        ...data,
+        company, // Include company in invitation
+      });
+      return response.data; // Should include isNewUser flag
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to send invitation"
+      );
+    }
+  }
+);
+
+//Invitation Acceptance.
+export const acceptTeamInvitation = createAsyncThunk<
+  { team: Team; authToken?: string }, // Return both team and auth token
+  { token: string; password?: string }, // Make password optional
+  { rejectValue: { message: string; requiresRegistration?: boolean } }
+>("team/acceptInvite", async ({ token, password }, { rejectWithValue }) => {
   try {
     const response = await axios.post("/team/accept-invite", {
       token,
-      teamId,
+      ...(password && { password }), // Only include password if provided
     });
-    return response.data.data;
+
+    return response.data;
   } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to accept invitation"
-    );
+    // Enhanced error handling
+    if (error.response?.data?.status === "registration_required") {
+      return rejectWithValue({
+        message: error.response.data.error,
+        requiresRegistration: true,
+      });
+    }
+    return rejectWithValue({
+      message: error.response?.data?.error || "Failed to accept invitation",
+    });
   }
 });
+
+// Check invitation validity (for the accept page)
+export const checkInvitation = createAsyncThunk<
+  { email: string; company: string },
+  string,
+  { rejectValue: string }
+>("team/checkInvite", async (token, { rejectWithValue }) => {
+  try {
+    const response = await axios.get(`/team/check-invite?token=${token}`);
+    return response.data;
+  } catch (error: any) {
+    return rejectWithValue(error.response?.data?.error || "Invalid invitation");
+  }
+});
+
+// Resend invitation
+export const resendInvitation = createAsyncThunk<
+  void,
+  { teamId: string; invitationId: string },
+  { rejectValue: string }
+>(
+  "team/resendInvite",
+  async ({ teamId, invitationId }, { rejectWithValue }) => {
+    try {
+      await axios.post(`/team/${teamId}/invitations/${invitationId}/resend`);
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to resend invitation"
+      );
+    }
+  }
+);
 
 export const removeTeamMember = createAsyncThunk<
   Team,
@@ -321,20 +393,39 @@ const teamSlice = createSlice({
       })
 
       // Accept Team Invitation
-      .addCase(acceptTeamInvitation.pending, (state) => {
-        state.processing = true;
-        state.error = null;
-      })
       .addCase(acceptTeamInvitation.fulfilled, (state, action) => {
         state.processing = false;
-        if (!state.teams.some((team) => team.id === action.payload.id)) {
-          state.teams.unshift(action.payload);
+        const { team, authToken } = action.payload;
+
+        if (!state.teams.some((t) => t.id === team.id)) {
+          state.teams.unshift(team);
         }
+
         state.lastOperation = "inviteAccepted";
+        // Store authToken if needed for immediate login
       })
       .addCase(acceptTeamInvitation.rejected, (state, action) => {
         state.processing = false;
-        state.error = action.payload || "Failed to accept invitation";
+        if (action.payload?.requiresRegistration) {
+          state.invitationStatus = "registration_required";
+        } else {
+          state.error =
+            action.payload?.message || "Failed to accept invitation";
+        }
+      })
+
+      // Check Invitation
+      .addCase(checkInvitation.pending, (state) => {
+        state.invitationStatus = "checking";
+        state.error = null;
+      })
+      .addCase(checkInvitation.fulfilled, (state, action) => {
+        state.invitationStatus = "registration_required";
+        // Store invitation details if needed
+      })
+      .addCase(checkInvitation.rejected, (state, action) => {
+        state.invitationStatus = "idle";
+        state.error = action.payload || "Invalid invitation";
       })
 
       // Remove Team Member

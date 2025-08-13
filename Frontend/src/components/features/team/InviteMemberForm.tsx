@@ -1,3 +1,4 @@
+//src/components/features/team/InviteMemberForm.tsx
 import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { inviteTeamMember, clearTeamError } from "@/store/slices/teamSlice";
@@ -9,6 +10,7 @@ import {
   Alert,
   CircularProgress,
   MenuItem,
+  SelectChangeEvent,
 } from "@mui/material";
 import { GridItem } from "@/components/layout/GridItem";
 import type { Team } from "@/types/team";
@@ -35,14 +37,18 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
     message: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+      | SelectChangeEvent<string>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.teamId) return;
+    if (!formData.teamId || !formData.email) return;
 
     const result = await dispatch(
       inviteTeamMember({
@@ -65,6 +71,10 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
       if (onSuccess) onSuccess();
     }
   };
+
+  // Check if form is valid
+  const isFormValid =
+    formData.teamId !== "" && formData.email !== "" && !processing;
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
@@ -97,7 +107,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
               Select a team
             </MenuItem>
             {teams.map((team) => (
-              <MenuItem key={team.id} value={team.id}>
+              <MenuItem key={team.id} value={team.id.toString()}>
                 {team.name}
               </MenuItem>
             ))}
@@ -148,7 +158,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
           type="submit"
           variant="contained"
           color="primary"
-          disabled={processing || !formData.email || !formData.teamId}
+          disabled={!isFormValid}
           startIcon={processing ? <CircularProgress size={20} /> : null}
         >
           Send Invitation

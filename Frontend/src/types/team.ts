@@ -11,10 +11,17 @@ export interface TeamMember {
 }
 
 export interface TeamInvitation {
+  id: string;
   email: string;
-  token: string;
   role: "admin" | "member";
+  token: string;
+  status: "pending" | "accepted" | "expired";
   expiresAt: string;
+  company: string;
+  inviter: {
+    name: string;
+    email: string;
+  };
 }
 
 export interface Team {
@@ -81,12 +88,18 @@ export interface CreateTeamPayload {
 
 export interface InviteMemberPayload {
   email: string;
-  role?: "admin" | "member";
-  message: string;
+  role: "admin" | "member";
+  message?: string;
+  company?: string; // Add company to payload
 }
 
 export interface UpdateTeamPayload {
   name?: string;
   description?: string;
   avatar?: string;
+}
+
+export interface AcceptInvitationResponse {
+  team: Team;
+  authToken?: string;
 }
