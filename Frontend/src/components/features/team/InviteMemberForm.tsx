@@ -1,5 +1,4 @@
-//src/components/features/team/InviteMemberForm.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { inviteTeamMember, clearTeamError } from "@/store/slices/teamSlice";
 import {
@@ -22,7 +21,7 @@ interface InviteMemberFormProps {
 
 const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
   onSuccess,
-  teams,
+  teams = [],
 }) => {
   const dispatch = useAppDispatch();
   const { processing, error } = useAppSelector((state) => ({
@@ -73,8 +72,7 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
   };
 
   // Check if form is valid
-  const isFormValid =
-    formData.teamId !== "" && formData.email !== "" && !processing;
+  const isFormValid = !!formData.teamId && !!formData.email && !processing;
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
@@ -107,8 +105,8 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
               Select a team
             </MenuItem>
             {teams.map((team) => (
-              <MenuItem key={team.id} value={team.id.toString()}>
-                {team.name}
+              <MenuItem key={team?.id || ""} value={team?.id?.toString() || ""}>
+                {team?.name || "Unnamed Team"}
               </MenuItem>
             ))}
           </TextField>
