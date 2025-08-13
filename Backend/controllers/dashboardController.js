@@ -15,6 +15,7 @@ const NetworkTopology = require("../models/NetworkTopologyModel");
 
 const getDashboardData = asyncHandler(async (req, res) => {
   const userId = req.user._id;
+  const userFid = req.user.uid;
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -40,7 +41,7 @@ const getDashboardData = asyncHandler(async (req, res) => {
       //Design.countDocuments({ userId: userIdObj, visualized: true }),
       NetworkTopology.countDocuments({ userId: userIdObj }),
       Team.countDocuments({
-        createdBy: userId,
+        createdBy: userFid,
       }),
 
       // Invitations breakdown
