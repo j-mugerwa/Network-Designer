@@ -13,6 +13,9 @@ const {
   inviteToTeam,
   acceptInvite,
   getTeamDesigns,
+  getSentInvitations,
+  deleteInvitation,
+  resendInvitation,
 } = require("../controllers/teamController");
 
 const inviteLimiter = rateLimit({
@@ -35,5 +38,9 @@ router.post("/accept-invite", acceptInvite);
 
 // New route for team designs
 router.get("/:id/designs", getTeamDesigns);
+// Invitations Related.
+router.get("/invitations/sent", getSentInvitations);
+router.delete("/invitations/:id", deleteInvitation);
+router.post("/invitations/:id/resend", resendInvitation);
 
 module.exports = router;

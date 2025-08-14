@@ -22,6 +22,21 @@ interface TeamState {
   lastOperation: string | null;
   pendingInvitations: TeamInvitation[];
   invitationStatus: "idle" | "checking" | "registration_required";
+  sentInvitations: Array<{
+    inviteeName: any;
+    id: string;
+    email: string;
+    name?: string;
+    team: {
+      id: string;
+      name: string;
+    };
+    role: "admin" | "member";
+    status: "pending" | "accepted" | "expired";
+    createdAt: string;
+    expiresAt: string;
+  }>;
+  invitationsLoading: boolean;
 }
 
 const initialState: TeamState = {
@@ -34,25 +49,11 @@ const initialState: TeamState = {
   lastOperation: null,
   pendingInvitations: [],
   invitationStatus: "idle",
+  sentInvitations: [],
+  invitationsLoading: false,
 };
 
 // Thunks
-/*
-export const createTeam = createAsyncThunk<
-  Team,
-  CreateTeamPayload,
-  { rejectValue: string }
->("team/create", async (payload, { rejectWithValue }) => {
-  try {
-    const response = await axios.post("/team", payload);
-    return response.data.data;
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to create team"
-    );
-  }
-});
-*/
 
 export const createTeam = createAsyncThunk<
   Team,
@@ -146,22 +147,7 @@ export const addTeamMember = createAsyncThunk<
   }
 });
 
-/*
-export const inviteTeamMember = createAsyncThunk<
-  void,
-  { teamId: string; data: InviteMemberPayload },
-  { rejectValue: string }
->("team/inviteMember", async ({ teamId, data }, { rejectWithValue }) => {
-  try {
-    await axios.post(`/team/${teamId}/invite`, data);
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to send invitation"
-    );
-  }
-});
-*/
-
+//Member Invitation
 export const inviteTeamMember = createAsyncThunk<
   { isNewUser: boolean }, // Return whether this is a new user
   { teamId: string; data: InviteMemberPayload & { company?: string } },
@@ -228,16 +214,45 @@ export const checkInvitation = createAsyncThunk<
   }
 });
 
-// Resend invitation
-export const resendInvitation = createAsyncThunk<
-  void,
-  { teamId: string; invitationId: string },
-  { rejectValue: string }
->(
-  "team/resendInvite",
-  async ({ teamId, invitationId }, { rejectWithValue }) => {
+//Fetch Invitations sent.
+export const fetchSentInvitations = createAsyncThunk(
+  "team/fetchSentInvitations",
+  async (_, { rejectWithValue }) => {
     try {
-      await axios.post(`/team/${teamId}/invitations/${invitationId}/resend`);
+      const response = await axios.get("/team/invitations/sent");
+      return response.data.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to fetch invitations"
+      );
+    }
+  }
+);
+
+//Delete an invitation
+export const deleteInvitation = createAsyncThunk(
+  "team/deleteInvitation",
+  async (invitationId: string, { rejectWithValue }) => {
+    try {
+      await axios.delete(`/team/invitations/${invitationId}`);
+      return invitationId;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to delete invitation"
+      );
+    }
+  }
+);
+
+// Resend invitation
+export const resendInvitation = createAsyncThunk(
+  "team/resendInvitation",
+  async (invitationId: string, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        `/team/invitations/${invitationId}/resend`
+      );
+      return response.data.data;
     } catch (error: any) {
       return rejectWithValue(
         error.response?.data?.error || "Failed to resend invitation"
@@ -428,6 +443,36 @@ const teamSlice = createSlice({
         state.error = action.payload || "Invalid invitation";
       })
 
+      // Fetch Sent Invitations
+      .addCase(fetchSentInvitations.pending, (state) => {
+        state.invitationsLoading = true;
+      })
+      .addCase(fetchSentInvitations.fulfilled, (state, action) => {
+        state.invitationsLoading = false;
+        state.sentInvitations = action.payload;
+      })
+      .addCase(fetchSentInvitations.rejected, (state, action) => {
+        state.invitationsLoading = false;
+        state.error = action.payload as string;
+      })
+
+      // Delete Invitation
+      .addCase(deleteInvitation.fulfilled, (state, action) => {
+        state.sentInvitations = state.sentInvitations.filter(
+          (inv) => inv.id !== action.payload
+        );
+      })
+
+      // Resend Invitation
+      .addCase(resendInvitation.fulfilled, (state, action) => {
+        const index = state.sentInvitations.findIndex(
+          (inv) => inv.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.sentInvitations[index] = action.payload;
+        }
+      })
+
       // Remove Team Member
       .addCase(removeTeamMember.pending, (state) => {
         state.processing = true;
@@ -468,6 +513,10 @@ export const { clearTeamError, resetLastOperation, setCurrentTeam } =
   teamSlice.actions;
 
 // Selectors
+export const selectSentInvitations = (state: RootState) =>
+  state.team.sentInvitations;
+export const selectInvitationsLoading = (state: RootState) =>
+  state.team.invitationsLoading;
 export const selectTeams = (state: RootState) => state.team.teams;
 export const selectCurrentTeam = (state: RootState) => state.team.currentTeam;
 export const selectTeamDesigns = (state: RootState) => state.team.teamDesigns;

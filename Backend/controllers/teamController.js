@@ -348,6 +348,91 @@ const acceptInvite = asyncHandler(async (req, res, next) => {
   });
 });
 
+//Get invitations sent by the currently logged in user.
+const getSentInvitations = asyncHandler(async (req, res) => {
+  const invitations = await Invitation.find({
+    inviterId: req.user.uid,
+  })
+    .populate("team", "name")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  res.status(200).json({
+    status: "success",
+    data: invitations.map((inv) => ({
+      id: inv._id,
+      email: inv.email,
+      team: {
+        id: inv.team._id,
+        name: inv.team.name,
+      },
+      role: inv.role,
+      status: inv.status,
+      createdAt: inv.createdAt,
+      expiresAt: inv.expiresAt,
+    })),
+  });
+});
+
+//Delete an invitation
+const deleteInvitation = asyncHandler(async (req, res) => {
+  const invitation = await Invitation.findOneAndDelete({
+    _id: req.params.id,
+    inviterId: req.user.uid,
+  });
+
+  if (!invitation) {
+    return next(new AppError("Invitation not found or access denied", 404));
+  }
+
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});
+
+//Resend invitation:
+const resendInvitation = asyncHandler(async (req, res) => {
+  const invitation = await Invitation.findOne({
+    _id: req.params.id,
+    inviterId: req.user.uid,
+  }).populate("team", "name owner");
+
+  if (!invitation) {
+    return next(new AppError("Invitation not found or access denied", 404));
+  }
+
+  // Generate new token and expiration
+  invitation.token = crypto.randomBytes(32).toString("hex");
+  invitation.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  await invitation.save();
+
+  // Send email
+  const inviteUrl = `${process.env.FRONTEND_URL}/team/accept-invite?token=${invitation.token}`;
+  await sendEmail(
+    `New invitation to join ${invitation.team.name}`,
+    `You've been invited to join ${invitation.team.name}.
+    <a href="${inviteUrl}">Click here</a> to accept the invitation.`,
+    invitation.email
+  );
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      id: invitation._id,
+      email: invitation.email,
+      team: {
+        id: invitation.team._id,
+        name: invitation.team.name,
+      },
+      role: invitation.role,
+      status: invitation.status,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+    },
+  });
+});
+
 // @desc    Get all designs for a team
 // @route   GET /api/teams/:id/designs
 // @access  Private (Team members only)
@@ -465,6 +550,9 @@ module.exports = {
   addTeamMember,
   inviteToTeam,
   acceptInvite,
+  getSentInvitations,
+  deleteInvitation,
+  resendInvitation,
   removeTeamMember,
   getTeamDesigns,
 };
