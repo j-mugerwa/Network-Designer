@@ -30,7 +30,7 @@ const TeamInvitePage = () => {
   };
 
   const handleSuccess = () => {
-    router.push("/teams");
+    router.push("/team");
   };
 
   return (

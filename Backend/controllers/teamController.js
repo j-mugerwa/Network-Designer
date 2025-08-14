@@ -250,7 +250,7 @@ const inviteToTeam = asyncHandler(async (req, res, next) => {
   const isNewUser = !existingUser;
 
   // Send appropriate email
-  const inviteUrl = `${process.env.FRONTEND_URL}/accept-invite?token=${token}`;
+  const inviteUrl = `${process.env.FRONTEND_URL}/team/accept-invite?token=${token}`;
 
   if (isNewUser) {
     await sendEmail(
