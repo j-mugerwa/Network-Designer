@@ -33,7 +33,8 @@ const AcceptInvitePage = () => {
       const result = await dispatch(acceptTeamInvitation({ token, password }));
 
       if (acceptTeamInvitation.fulfilled.match(result)) {
-        router.push(`/team/${result.payload.team}`);
+        //router.push(`/team/${result.payload.team}`);
+        router.push(`/team`);
       } else if (result.payload) {
         setError(result.payload.message);
         if (result.payload.requiresRegistration) {
@@ -112,6 +113,19 @@ const AcceptInvitePage = () => {
           sx={{ mt: 2 }}
         >
           {loading ? <CircularProgress size={24} /> : "Accept Invitation"}
+        </Button>
+      )}
+
+      {!needsRegistration && (
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => router.push(`/team/decline-invite?token=${token}`)}
+          disabled={loading}
+          fullWidth
+          sx={{ mt: 2 }}
+        >
+          Decline Invitation
         </Button>
       )}
     </Box>

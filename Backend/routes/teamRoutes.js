@@ -12,6 +12,7 @@ const {
   removeTeamMember,
   inviteToTeam,
   acceptInvite,
+  declineInvite,
   getTeamDesigns,
   getSentInvitations,
   deleteInvitation,
@@ -35,6 +36,7 @@ router.delete("/:id/members/:memberId", removeTeamMember);
 
 router.post("/:id/invite", inviteLimiter, inviteToTeam);
 router.post("/accept-invite", acceptInvite);
+router.post("/decline-invite", declineInvite);
 
 // New route for team designs
 router.get("/:id/designs", getTeamDesigns);

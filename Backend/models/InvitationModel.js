@@ -10,7 +10,7 @@ const invitationSchema = new mongoose.Schema(
     inviterId: { type: String, ref: "User", required: true },
     status: {
       type: String,
-      enum: ["pending", "accepted", "expired", "registered"],
+      enum: ["pending", "accepted", "expired", "declined", "registered"],
       default: "pending",
     },
     team: { type: mongoose.Schema.Types.ObjectId, ref: "Team", required: true },

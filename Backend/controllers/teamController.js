@@ -215,19 +215,31 @@ const inviteToTeam = asyncHandler(async (req, res, next) => {
 
   // Send appropriate email
   const inviteUrl = `${process.env.FRONTEND_URL}/team/accept-invite?token=${token}`;
-
+  const declineUrl = `${process.env.FRONTEND_URL}/team/decline-invite?token=${token}`;
   if (isNewUser) {
     await sendEmail(
       `Invitation to join ${team.owner.company} on Network Designer`,
       `You've been invited to join ${team.owner.company}'s team on Network Designer.
-      <a href="${inviteUrl}">Click here</a> to create your account and join.`,
+    <div style="margin: 20px 0;">
+      <a href="${inviteUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px;">Accept Invitation</a>
+      <a href="${declineUrl}" style="background-color: #f44336; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Decline Invitation</a>
+    </div>
+    <p>Or copy and paste these links in your browser:</p>
+    <p>Accept: ${inviteUrl}</p>
+    <p>Decline: ${declineUrl}</p>`,
       email
     );
   } else {
     await sendEmail(
-      `Invitation to join ${team.name}`,
-      `You've been invited to join ${team.name}.
-      <a href="${inviteUrl}">Click here</a> to accept the invitation.`,
+      `Invitation to join ${team.owner.company} on Network Designer`,
+      `You've been invited to join ${team.owner.company}'s team on Network Designer.
+    <div style="margin: 20px 0;">
+      <a href="${inviteUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px;">Accept Invitation</a>
+      <a href="${declineUrl}" style="background-color: #f44336; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Decline Invitation</a>
+    </div>
+    <p>Or copy and paste these links in your browser:</p>
+    <p>Accept: ${inviteUrl}</p>
+    <p>Decline: ${declineUrl}</p>`,
       email
     );
   }
@@ -311,6 +323,33 @@ const acceptInvite = asyncHandler(async (req, res, next) => {
       team: team._id,
       authToken,
     },
+  });
+});
+
+// @desc    Decline team invitation
+// @route   POST /api/teams/decline-invite
+// @access  Private
+const declineInvite = asyncHandler(async (req, res, next) => {
+  const { token } = req.body;
+
+  // Verify token
+  const invitation = await Invitation.findOne({
+    token,
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (!invitation) {
+    return next(new AppError("Invalid or expired invitation", 400));
+  }
+
+  // Update invitation status
+  invitation.status = "declined";
+  await invitation.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Invitation declined",
   });
 });
 
@@ -516,6 +555,7 @@ module.exports = {
   addTeamMember,
   inviteToTeam,
   acceptInvite,
+  declineInvite,
   getSentInvitations,
   deleteInvitation,
   resendInvitation,

@@ -221,6 +221,22 @@ export const checkInvitation = createAsyncThunk<
   }
 });
 
+//Decline Invitation
+export const declineTeamInvitation = createAsyncThunk<
+  void,
+  { token: string },
+  { rejectValue: { message: string } }
+>("team/declineInvite", async ({ token }, { rejectWithValue }) => {
+  try {
+    const response = await axios.post("/team/decline-invite", { token });
+    return response.data;
+  } catch (error: any) {
+    return rejectWithValue({
+      message: error.response?.data?.error || "Failed to decline invitation",
+    });
+  }
+});
+
 //Fetch Invitations sent.
 export const fetchSentInvitations = createAsyncThunk(
   "team/fetchSentInvitations",
