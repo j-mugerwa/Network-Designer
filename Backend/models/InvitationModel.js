@@ -13,6 +13,7 @@ const invitationSchema = new mongoose.Schema(
       enum: ["pending", "accepted", "expired", "registered"],
       default: "pending",
     },
+    team: { type: mongoose.Schema.Types.ObjectId, ref: "Team", required: true },
     expiresAt: { type: Date, required: true },
     registeredUserId: { type: String, ref: "User" }, // For tracking
   },
@@ -24,6 +25,7 @@ invitationSchema.index({ email: 1, team: 1 }, { unique: true });
 //invitationSchema.index({ token: 1 }, { unique: true });
 invitationSchema.index({ status: 1 });
 invitationSchema.index({ invitedBy: 1 });
+invitationSchema.index({ team: 1 });
 
 const Invitation = mongoose.model("Invitation", invitationSchema);
 
