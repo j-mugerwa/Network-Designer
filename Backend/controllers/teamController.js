@@ -255,6 +255,7 @@ const inviteToTeam = asyncHandler(async (req, res, next) => {
 // @route   POST /api/teams/accept-invite
 // @access  Private
 
+/*
 const acceptInvite = asyncHandler(async (req, res, next) => {
   const { token, password } = req.body;
 
@@ -298,6 +299,11 @@ const acceptInvite = asyncHandler(async (req, res, next) => {
       ).uid,
     });
 
+    team.members.push({
+      userId: user.firebaseUID, // Use firebaseUID instead of _id
+      role: invitation.role,
+    });
+
     // Update invitation with new user ID
     invitation.registeredUserId = user._id;
   }
@@ -325,6 +331,97 @@ const acceptInvite = asyncHandler(async (req, res, next) => {
     status: "success",
     data: {
       team: populatedTeam, // Return the full populated team object
+      authToken,
+    },
+  });
+});
+*/
+
+const acceptInvite = asyncHandler(async (req, res, next) => {
+  const { token, password } = req.body;
+
+  // Verify token
+  const invitation = await Invitation.findOne({
+    token,
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  }).populate("team");
+
+  if (!invitation) {
+    return next(new AppError("Invalid or expired invitation", 400));
+  }
+
+  // Check if user exists
+  let user = await User.findOne({ email: invitation.email });
+
+  if (!user) {
+    // New user registration flow
+    if (!password) {
+      return res.status(200).json({
+        status: "registration_required",
+        message: "Registration required",
+        requiresRegistration: true,
+        email: invitation.email,
+        company: invitation.company,
+      });
+    }
+
+    // Create new user
+    const firebaseUser = await admin.auth().createUser({
+      email: invitation.email,
+      password,
+      emailVerified: true,
+    });
+
+    user = await User.create({
+      email: invitation.email,
+      company: invitation.company,
+      firebaseUID: firebaseUser.uid,
+    });
+
+    // Update invitation with new user ID
+    invitation.registeredUserId = user.firebaseUID; // Use firebaseUID here if your schema expects it
+  }
+
+  // Get team and add user
+  const team = await Team.findById(invitation.team._id);
+
+  // Check if user is already a member
+  const isAlreadyMember = team.members.some(
+    (member) => member.userId.toString() === user.firebaseUID
+  );
+
+  if (!isAlreadyMember) {
+    team.members.push({
+      userId: user.firebaseUID, // Consistent use of firebaseUID
+      role: invitation.role,
+    });
+    await team.save();
+  }
+
+  // Update invitation status
+  invitation.status = "accepted";
+  await invitation.save();
+
+  // Populate team data
+  const populatedTeam = await Team.findById(team._id)
+    .populate({
+      path: "owner",
+      select: "name email avatar",
+    })
+    .populate({
+      path: "members.userId",
+      match: { firebaseUID: { $exists: true } }, // Ensure we're matching Firebase users
+      select: "name email avatar",
+    });
+
+  // Generate auth token
+  const authToken = await admin.auth().createCustomToken(user.firebaseUID);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      team: populatedTeam,
       authToken,
     },
   });
