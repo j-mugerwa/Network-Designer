@@ -314,13 +314,17 @@ const acceptInvite = asyncHandler(async (req, res, next) => {
   invitation.status = "accepted";
   await invitation.save();
 
+  const populatedTeam = await Team.findById(team._id)
+    .populate("owner", "name email avatar")
+    .populate("members.userId", "name email avatar");
+
   // Generate auth token for immediate login
   const authToken = await admin.auth().createCustomToken(user.firebaseUID);
 
   res.status(200).json({
     status: "success",
     data: {
-      team: team._id,
+      team: populatedTeam, // Return the full populated team object
       authToken,
     },
   });

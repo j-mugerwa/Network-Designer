@@ -192,7 +192,15 @@ export const acceptTeamInvitation = createAsyncThunk<
       ...(password && { password }),
     });
 
-    return response.data;
+    if (!response.data.data?.team) {
+      throw new Error("Team data missing from response");
+    }
+
+    //return response.data;
+    return {
+      team: response.data.data.team,
+      authToken: response.data.data.authToken,
+    };
   } catch (error: any) {
     if (error.response?.data?.status === "registration_required") {
       return rejectWithValue({
@@ -207,6 +215,7 @@ export const acceptTeamInvitation = createAsyncThunk<
     });
   }
 });
+
 // Check invitation validity (for the accept page)
 export const checkInvitation = createAsyncThunk<
   { email: string; company: string },
@@ -435,12 +444,12 @@ const teamSlice = createSlice({
         state.processing = false;
         const { team, authToken } = action.payload;
 
+        // Add team if not already in state
         if (!state.teams.some((t) => t.id === team.id)) {
           state.teams.unshift(team);
         }
-
+        state.currentTeam = team; // Set as current team
         state.lastOperation = "inviteAccepted";
-        // Store authToken if needed for immediate login
       })
       .addCase(acceptTeamInvitation.rejected, (state, action) => {
         state.processing = false;

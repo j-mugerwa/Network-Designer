@@ -33,8 +33,8 @@ const AcceptInvitePage = () => {
       const result = await dispatch(acceptTeamInvitation({ token, password }));
 
       if (acceptTeamInvitation.fulfilled.match(result)) {
-        //router.push(`/team/${result.payload.team}`);
-        router.push(`/team`);
+        setTimeout(() => router.push(`/team`), 100);
+        //router.push(`/team`);
       } else if (result.payload) {
         setError(result.payload.message);
         if (result.payload.requiresRegistration) {
