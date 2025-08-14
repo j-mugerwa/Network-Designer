@@ -46,7 +46,7 @@ const getDashboardData = asyncHandler(async (req, res) => {
 
       // Invitations breakdown
       Invitation.aggregate([
-        { $match: { invitedBy: userIdObj } },
+        { $match: { inviterId: userFid } },
         {
           $group: {
             _id: "$status",
