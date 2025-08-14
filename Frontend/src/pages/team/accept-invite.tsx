@@ -33,10 +33,8 @@ const AcceptInvitePage = () => {
 
   const checkInvite = async () => {
     try {
-      const base_url = process.env.BASE_URL;
-      const response = await fetch(
-        `${base_url}/api/team/check-invite?token=${token}`
-      );
+      //const base_url = process.env.BASE_URL;
+      const response = await fetch(`/api/team/check-invite?token=${token}`);
       const data = await response.json();
 
       if (data.status === "registration_required") {
