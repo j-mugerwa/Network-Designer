@@ -6,48 +6,12 @@ const NetworkDesign = require("../models/NetworkDesignModel");
 const AppError = require("../utils/appError");
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
+const admin = require("../config/firebse");
 const mongoose = require("mongoose");
 
 // @desc    Create a new team
 // @route   POST /api/team
 // @access  Private
-
-/*
-const createTeam = asyncHandler(async (req, res, next) => {
-  const { name, description, members } = req.body;
-
-  // First verify the user exists in your database
-  const userExists = await User.findOne({ firebaseUID: req.user.uid });
-
-  if (!userExists) {
-    return next(new AppError("User not found in database", 404));
-  }
-
-  const team = await Team.create({
-    name,
-    description,
-    createdBy: req.user.uid,
-    members: members
-      ? members.map((m) => ({
-          userId: m.userId,
-          role: m.role || "member",
-        }))
-      : [],
-  });
-
-  // Modified population to use firebaseUID
-  await team.populate({
-    path: "owner",
-    match: { firebaseUID: req.user.uid },
-    select: "name email avatar",
-  });
-
-  res.status(201).json({
-    status: "success",
-    data: team,
-  });
-});
-*/
 
 const createTeam = asyncHandler(async (req, res, next) => {
   const { name, description, members } = req.body;
