@@ -41,9 +41,10 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
   // Nuclear option - completely bypassing type checking for the select
   const handleTeamChange = (event: any) => {
     const selectedValue = event?.target?.value ?? "";
+    console.log("Selected team ID:", selectedValue);
     setFormData((prev) => {
       const newState = { ...prev, teamId: selectedValue };
-      console.log("Team selection updated:", newState);
+      console.log("New form state:", newState);
       return newState;
     });
   };
@@ -125,15 +126,19 @@ const InviteMemberForm: React.FC<InviteMemberFormProps> = ({
               <MenuItem value="">
                 <em>Select a team</em>
               </MenuItem>
-              {teams.map((team) => (
-                <MenuItem
-                  key={team.id}
-                  value={team.id}
-                  data-testid={`team-option-${team.id}`}
-                >
-                  {team.name}
-                </MenuItem>
-              ))}
+              {teams.map((team) => {
+                const teamId = team._id || team.id;
+                console.log(`Rendering team ${team.name} with ID:`, teamId);
+                return (
+                  <MenuItem
+                    key={teamId}
+                    value={teamId}
+                    data-testid={`team-option-${teamId}`}
+                  >
+                    {team.name}
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
         </GridItem>

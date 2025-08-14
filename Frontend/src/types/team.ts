@@ -26,6 +26,7 @@ export interface TeamInvitation {
 
 export interface Team {
   id: string;
+  _id?: string;
   name: string;
   description?: string;
   createdBy: string;
