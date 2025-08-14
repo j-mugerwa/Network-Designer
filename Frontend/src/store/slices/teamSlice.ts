@@ -175,23 +175,31 @@ export const inviteTeamMember = createAsyncThunk<
 
 //Invitation Acceptance.
 export const acceptTeamInvitation = createAsyncThunk<
-  { team: Team; authToken?: string }, // Return both team and auth token
-  { token: string; password?: string }, // Make password optional
-  { rejectValue: { message: string; requiresRegistration?: boolean } }
+  { team: Team; authToken?: string },
+  { token: string; password?: string },
+  {
+    rejectValue: {
+      message: string;
+      requiresRegistration?: boolean;
+      email?: string;
+      company?: string;
+    };
+  }
 >("team/acceptInvite", async ({ token, password }, { rejectWithValue }) => {
   try {
     const response = await axios.post("/team/accept-invite", {
       token,
-      ...(password && { password }), // Only include password if provided
+      ...(password && { password }),
     });
 
     return response.data;
   } catch (error: any) {
-    // Enhanced error handling
     if (error.response?.data?.status === "registration_required") {
       return rejectWithValue({
-        message: error.response.data.error,
+        message: error.response.data.error || "Registration required",
         requiresRegistration: true,
+        email: error.response.data.email,
+        company: error.response.data.company,
       });
     }
     return rejectWithValue({
@@ -199,7 +207,6 @@ export const acceptTeamInvitation = createAsyncThunk<
     });
   }
 });
-
 // Check invitation validity (for the accept page)
 export const checkInvitation = createAsyncThunk<
   { email: string; company: string },

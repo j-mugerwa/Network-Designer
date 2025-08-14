@@ -23,30 +23,6 @@ const AcceptInvitePage = () => {
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
 
-  useEffect(() => {
-    if (typeof token === "string") {
-      checkInvite();
-    } else {
-      setError("Invalid invitation token");
-    }
-  }, [token]);
-
-  const checkInvite = async () => {
-    try {
-      //const base_url = process.env.BASE_URL;
-      const response = await fetch(`/api/team/check-invite?token=${token}`);
-      const data = await response.json();
-
-      if (data.status === "registration_required") {
-        setNeedsRegistration(true);
-        setEmail(data.email);
-        setCompany(data.company);
-      }
-    } catch (err) {
-      setError("Invalid or expired invitation");
-    }
-  };
-
   const handleAccept = async () => {
     setLoading(true);
     try {
@@ -62,6 +38,9 @@ const AcceptInvitePage = () => {
         setError(result.payload.message);
         if (result.payload.requiresRegistration) {
           setNeedsRegistration(true);
+          // Get email and company from the error payload if available
+          setEmail(result.payload.email || "");
+          setCompany(result.payload.company || "");
         }
       }
     } catch (err) {

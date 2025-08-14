@@ -301,6 +301,8 @@ const acceptInvite = asyncHandler(async (req, res, next) => {
     if (!password) {
       return res.status(200).json({
         status: "registration_required",
+        message: "Registration required",
+        requiresRegistration: true,
         email: invitation.email,
         company: invitation.company,
       });
