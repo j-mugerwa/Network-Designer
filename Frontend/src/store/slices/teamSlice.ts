@@ -147,7 +147,7 @@ export const addTeamMember = createAsyncThunk<
   }
 });
 
-//Member Invitation
+//Handle Member Invitation
 export const inviteTeamMember = createAsyncThunk<
   { isNewUser: boolean }, // Return whether this is a new user
   { teamId: string; data: InviteMemberPayload & { company?: string } },
