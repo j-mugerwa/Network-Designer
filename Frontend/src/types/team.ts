@@ -1,13 +1,25 @@
 // src/types/team.ts
+
+export interface User {
+  id?: string;
+  _id?: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  firebaseUID?: string;
+}
+
 export interface TeamMember {
-  userId: string;
+  userId: string | User;
   role: "owner" | "admin" | "member";
   joinedAt: string;
+  /*
   user?: {
     name: string;
     email: string;
     avatar?: string;
   };
+  */
 }
 
 export interface TeamInvitation {

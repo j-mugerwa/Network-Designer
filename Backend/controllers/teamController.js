@@ -71,12 +71,28 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 // @route   GET /api/teams/:id
 // @access  Private (Team members only)
 const getTeam = asyncHandler(async (req, res, next) => {
+  // In getTeam function
+  const team = await Team.findOne({
+    _id: req.params.id,
+    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
+  })
+    .populate({
+      path: "owner",
+      select: "name email avatar",
+    })
+    .populate({
+      path: "members.userId",
+      select: "name email avatar",
+    });
+
+  /*
   const team = await Team.findOne({
     _id: req.params.id,
     $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
   })
     .populate("owner", "name email avatar")
     .populate("members.userId", "name email avatar");
+    */
 
   if (!team) {
     return next(AppError.notFound("Team not found or access denied"));
