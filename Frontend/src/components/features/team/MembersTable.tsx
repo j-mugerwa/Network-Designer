@@ -73,10 +73,21 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     loadTeamDetails();
   }, [dispatch, teamId]);
 
+  /*
   const handleMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
     memberId: string
   ) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedMember(memberId);
+  };
+  */
+
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    memberId: string
+  ) => {
+    if (!memberId) return; // Prevent opening menu if no member ID
     setAnchorEl(event.currentTarget);
     setSelectedMember(memberId);
   };

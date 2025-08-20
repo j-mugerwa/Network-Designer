@@ -1,5 +1,5 @@
 // src/pages/team/[id]/members.tsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/store/store";
 import { Alert, Box, Button, Typography } from "@mui/material";
@@ -13,16 +13,25 @@ const TeamMembersPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { id } = router.query;
+  const [teamId, setTeamId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id && typeof id === "string") {
+      setTeamId(id);
+    }
+  }, [id]);
 
   const handleBack = () => {
     router.push("/team/");
   };
 
   const handleInvite = () => {
-    router.push(`/team/${id}/invite`);
+    if (teamId) {
+      router.push(`/team/invite`);
+    }
   };
 
-  if (!id) {
+  if (!teamId) {
     return (
       <AppLayout title="Team Members">
         <div className="container mx-auto px-4 py-8">
@@ -65,7 +74,7 @@ const TeamMembersPage = () => {
             </Button>
           </Box>
 
-          <MembersTable teamId={id as string} />
+          <MembersTable teamId={teamId} />
         </div>
       </div>
     </AppLayout>
