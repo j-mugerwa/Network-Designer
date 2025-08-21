@@ -9,6 +9,8 @@ import {
   selectTeamError,
   clearTeamError,
 } from "@/store/slices/teamSlice";
+import { selectAuthUser } from "@/store/slices/authSlice"; // Get Firebase user from auth
+import { selectCurrentUser } from "@/store/slices/userSlice"; // Get app user profile
 import {
   Table,
   TableBody,
@@ -83,6 +85,11 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
   const currentTeam = useAppSelector(selectCurrentTeam);
   const loading = useAppSelector(selectTeamLoading);
   const error = useAppSelector(selectTeamError);
+
+  // Get current user from auth state (Firebase user)
+  const currentAuthUser = useAppSelector(selectAuthUser); // This has the Firebase UID
+  // Get current user from user slice (app profile)
+  const currentAppUser = useAppSelector(selectCurrentUser); // This has the app user data
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
@@ -198,12 +205,14 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     );
   }
 
-  // Get current user ID from router query
-  const currentUserId = router.query.uid as string;
+  // Get current user ID - use Firebase UID from auth since that's what teams use
+  const currentUserId = currentAuthUser?.uid; // This should be the Firebase UID
 
   // Debug logging
   console.log("=== DEBUG MEMBERS TABLE ===");
-  console.log("Current user ID:", currentUserId);
+  console.log("Current auth user (Firebase):", currentAuthUser);
+  console.log("Current app user (Profile):", currentAppUser);
+  console.log("Current user ID (Firebase UID):", currentUserId);
   console.log("Team createdBy:", currentTeam.createdBy);
   console.log(
     "Current user is team owner:",
