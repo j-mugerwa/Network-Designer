@@ -15,21 +15,18 @@ const TeamMembersPage = () => {
   const { id } = router.query;
   const [teamId, setTeamId] = useState<string | null>(null);
 
-  /*
   useEffect(() => {
-    if (id && typeof id === "string") {
-      setTeamId(id);
-    }
-  }, [id]);
-  */
+    // Add debug logging to see what's happening
+    console.log("Router query id:", id);
+    console.log("Router query:", router.query);
 
-  useEffect(() => {
-    if (id) {
-      // Handle both string and array cases
-      const actualId = Array.isArray(id) ? id[0] : id;
-      if (typeof actualId === "string") {
-        setTeamId(actualId);
-      }
+    if (id && typeof id === "string") {
+      console.log("Setting teamId:", id);
+      setTeamId(id);
+    } else if (Array.isArray(id) && id.length > 0) {
+      // Handle case where id might be an array (shouldn't happen but just in case)
+      console.log("Setting teamId from array:", id[0]);
+      setTeamId(id[0]);
     }
   }, [id]);
 
@@ -39,15 +36,21 @@ const TeamMembersPage = () => {
 
   const handleInvite = () => {
     if (teamId) {
-      router.push(`/team/invite`);
+      router.push(`/team/${teamId}/invite`);
     }
   };
+
+  // Add debug output
+  console.log("Current teamId state:", teamId);
 
   if (!teamId) {
     return (
       <AppLayout title="Team Members">
         <div className="container mx-auto px-4 py-8">
           <Alert severity="error">Team ID is required</Alert>
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Current router id: {JSON.stringify(id)}
+          </Typography>
         </div>
       </AppLayout>
     );
