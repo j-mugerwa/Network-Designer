@@ -15,9 +15,21 @@ const TeamMembersPage = () => {
   const { id } = router.query;
   const [teamId, setTeamId] = useState<string | null>(null);
 
+  /*
   useEffect(() => {
     if (id && typeof id === "string") {
       setTeamId(id);
+    }
+  }, [id]);
+  */
+
+  useEffect(() => {
+    if (id) {
+      // Handle both string and array cases
+      const actualId = Array.isArray(id) ? id[0] : id;
+      if (typeof actualId === "string") {
+        setTeamId(actualId);
+      }
     }
   }, [id]);
 
