@@ -198,8 +198,17 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     );
   }
 
-  // Get current user ID
+  // Get current user ID from router query
   const currentUserId = router.query.uid as string;
+
+  // Check if current user is owner or admin
+  const currentUserIsOwner = currentTeam.createdBy === currentUserId;
+  const currentUserIsAdmin = currentTeam.members.some((m) => {
+    const memberUserId = getMemberUserId(m);
+    return (
+      memberUserId === currentUserId && ["owner", "admin"].includes(m.role)
+    );
+  });
 
   return (
     <TableContainer component={Paper}>
@@ -220,15 +229,7 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
             // Check if this member is the current user
             const isCurrentUser = memberUserId === currentUserId;
 
-            // Check if current user has admin permissions
-            const currentUserIsAdmin = currentTeam.members.some((m) => {
-              const mUserId = getMemberUserId(m);
-              return (
-                mUserId === currentUserId && ["owner", "admin"].includes(m.role)
-              );
-            });
-
-            const currentUserIsOwner = currentTeam.createdBy === currentUserId;
+            // Check if current user can remove this member
             const canRemove =
               (currentUserIsAdmin || currentUserIsOwner) &&
               !isCurrentUser &&
@@ -247,12 +248,10 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
                     </Avatar>
                     <Box>
                       <Typography fontWeight="medium">
-                        {memberUser.name || memberUser.email || "Unknown User"}
+                        {memberUser.name}
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
-                        {memberUser.email ||
-                          memberUser.id ||
-                          "No email available"}
+                        {memberUser.email}
                       </Typography>
                     </Box>
                   </Box>
