@@ -61,33 +61,33 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
 
   useEffect(() => {
     const loadTeamDetails = async () => {
+      if (!teamId || teamId === "undefined") {
+        console.error("Invalid teamId:", teamId);
+        return;
+      }
+
+      setLocalLoading(true);
       try {
         await dispatch(fetchTeamDetails(teamId));
       } catch (err) {
         console.error("Failed to load team details:", err);
+      } finally {
+        setLocalLoading(false);
       }
     };
+
     loadTeamDetails();
   }, [dispatch, teamId]);
 
-  /*
   const handleMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
     memberId: string
   ) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedMember(memberId);
-  };
-  */
-
-  const handleMenuOpen = (
-    event: React.MouseEvent<HTMLElement>,
-    memberId: string
-  ) => {
-    if (!memberId) return; // Prevent opening menu if no member ID
+    if (!memberId) return;
     setAnchorEl(event.currentTarget);
     setSelectedMember(memberId);
   };
@@ -126,6 +126,17 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     }
   };
 
+  // Show error if teamId is invalid
+  if (!teamId || teamId === "undefined") {
+    return (
+      <Box p={4} textAlign="center">
+        <Alert severity="error">
+          Invalid team ID. Please go back and try again.
+        </Alert>
+      </Box>
+    );
+  }
+
   if (error) {
     return (
       <Box p={4} textAlign="center">
@@ -136,7 +147,7 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     );
   }
 
-  if (loading) {
+  if (loading || localLoading) {
     return (
       <Box sx={{ p: 3 }}>
         {[...Array(5)].map((_, i) => (
@@ -146,7 +157,15 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     );
   }
 
-  if (!currentTeam || currentTeam.members.length === 0) {
+  if (!currentTeam) {
+    return (
+      <Box textAlign="center" p={4}>
+        <Typography variant="body1">Team not found.</Typography>
+      </Box>
+    );
+  }
+
+  if (currentTeam.members.length === 0) {
     return (
       <Box textAlign="center" p={4}>
         <Typography variant="body1">No members found in this team.</Typography>

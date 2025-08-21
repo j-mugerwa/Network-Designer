@@ -70,6 +70,7 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 // @desc    Get single team
 // @route   GET /api/teams/:id
 // @access  Private (Team members only)
+/*
 const getTeam = asyncHandler(async (req, res, next) => {
   // In getTeam function
   const team = await Team.findOne({
@@ -85,14 +86,42 @@ const getTeam = asyncHandler(async (req, res, next) => {
       select: "name email avatar",
     });
 
-  /*
+  if (!team) {
+    return next(AppError.notFound("Team not found or access denied"));
+  }
+
+  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      ...team.toObject(),
+      designCount,
+    },
+  });
+});
+*/
+
+const getTeam = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  // Validate that id is a valid MongoDB ObjectId
+  if (!id || id === "undefined" || !mongoose.Types.ObjectId.isValid(id)) {
+    return next(new AppError("Invalid team ID", 400));
+  }
+
   const team = await Team.findOne({
-    _id: req.params.id,
+    _id: id,
     $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
   })
-    .populate("owner", "name email avatar")
-    .populate("members.userId", "name email avatar");
-    */
+    .populate({
+      path: "owner",
+      select: "name email avatar",
+    })
+    .populate({
+      path: "members.userId",
+      select: "name email avatar",
+    });
 
   if (!team) {
     return next(AppError.notFound("Team not found or access denied"));
