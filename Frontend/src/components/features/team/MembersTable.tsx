@@ -53,6 +53,16 @@ const getUserFromMember = (member: any) => {
 };
 
 const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
+  console.log("MembersTable received teamId:", teamId);
+
+  if (!teamId || teamId === "undefined") {
+    return (
+      <Box p={4} textAlign="center">
+        <Alert severity="error">Invalid team ID received: {teamId}</Alert>
+      </Box>
+    );
+  }
+
   const dispatch = useAppDispatch();
   const router = useRouter();
   const currentTeam = useAppSelector(selectCurrentTeam);

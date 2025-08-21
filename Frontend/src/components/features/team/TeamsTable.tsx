@@ -136,7 +136,15 @@ const TeamsTable: React.FC = () => {
                 <Button
                   startIcon={<People />}
                   size="small"
-                  onClick={() => router.push(`/team/${team.id}/members`)}
+                  onClick={() => {
+                    console.log(
+                      "Navigating to team members for team:",
+                      team.id,
+                      "Team object:",
+                      team
+                    );
+                    router.push(`/team/${team.id}/members`);
+                  }}
                 >
                   {team.members.length} members
                 </Button>
