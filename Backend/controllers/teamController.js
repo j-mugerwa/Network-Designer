@@ -70,45 +70,7 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 // @desc    Get single team
 // @route   GET /api/teams/:id
 // @access  Private (Team members only)
-
 /*
-const getTeam = asyncHandler(async (req, res, next) => {
-  const { id } = req.params;
-
-  // Validate that id is a valid MongoDB ObjectId
-  if (!id || id === "undefined" || !mongoose.Types.ObjectId.isValid(id)) {
-    return next(new AppError("Invalid team ID", 400));
-  }
-
-  const team = await Team.findOne({
-    _id: id,
-    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
-  })
-    .populate({
-      path: "owner",
-      select: "name email avatar",
-    })
-    .populate({
-      path: "members.userId",
-      select: "name email avatar",
-    });
-
-  if (!team) {
-    return next(AppError.notFound("Team not found or access denied"));
-  }
-
-  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      ...team.toObject(),
-      designCount,
-    },
-  });
-});
-*/
-
 const getTeam = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
@@ -155,6 +117,104 @@ const getTeam = asyncHandler(async (req, res, next) => {
       members: membersWithUsers,
       designCount,
     },
+  });
+});
+*/
+
+//updated getTeam function
+const getTeam = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return next(new AppError("Invalid team ID", 400));
+  }
+
+  const team = await Team.findOne({
+    _id: id,
+    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
+  });
+
+  if (!team) {
+    return next(AppError.notFound("Team not found or access denied"));
+  }
+
+  // Manually populate owner and members with proper user data
+  const [owner, membersWithUsers] = await Promise.all([
+    User.findOne({ firebaseUID: team.createdBy }).select("name email avatar"),
+    Promise.all(
+      team.members.map(async (member) => {
+        try {
+          // Find user by their firebaseUID (which is stored in member.userId)
+          const user = await User.findOne({
+            firebaseUID: member.userId,
+          }).select("name email avatar");
+
+          if (user) {
+            return {
+              ...member.toObject(),
+              userId: {
+                _id: user._id,
+                id: user.firebaseUID, // Use firebaseUID as id for frontend consistency
+                name: user.name || user.email, // Use email if name is not available
+                email: user.email,
+                avatar: user.avatar,
+              },
+            };
+          } else {
+            // If user not found, create a minimal user object with available data
+            return {
+              ...member.toObject(),
+              userId: {
+                id: member.userId,
+                name: "Unknown User",
+                email: member.userId, // Use the userId as email (since it might be a firebaseUID)
+                avatar: undefined,
+              },
+            };
+          }
+        } catch (error) {
+          console.error("Error populating member:", error);
+          return {
+            ...member.toObject(),
+            userId: {
+              id: member.userId,
+              name: "Unknown User",
+              email: member.userId,
+              avatar: undefined,
+            },
+          };
+        }
+      })
+    ),
+  ]);
+
+  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
+
+  // Prepare response data
+  const responseData = {
+    ...team.toObject(),
+    designCount,
+    owner: owner
+      ? {
+          _id: owner._id,
+          id: owner.firebaseUID,
+          name: owner.name || owner.email,
+          email: owner.email,
+          avatar: owner.avatar,
+        }
+      : {
+          id: team.createdBy,
+          name: "Unknown Owner",
+          email: team.createdBy,
+        },
+  };
+
+  // Replace members with populated data
+  responseData.members = membersWithUsers;
+
+  res.status(200).json({
+    status: "success",
+    data: responseData,
   });
 });
 

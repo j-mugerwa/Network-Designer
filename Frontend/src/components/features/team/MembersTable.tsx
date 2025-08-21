@@ -37,6 +37,7 @@ interface MembersTableProps {
 }
 
 // Helper function to get user data from member
+/*
 const getUserFromMember = (member: any) => {
   if (typeof member.userId === "object" && member.userId !== null) {
     // userId is a populated user object
@@ -47,6 +48,27 @@ const getUserFromMember = (member: any) => {
       id: member.userId,
       name: "Unknown User",
       email: member.userId,
+      avatar: undefined,
+    };
+  }
+};
+*/
+
+const getUserFromMember = (member: any) => {
+  if (typeof member.userId === "object" && member.userId !== null) {
+    // userId is a populated user object
+    return {
+      id: member.userId.id || member.userId._id,
+      name: member.userId.name || member.userId.email || "Unknown User",
+      email: member.userId.email || member.userId.id || "No email",
+      avatar: member.userId.avatar,
+    };
+  } else {
+    // userId is a string, return minimal user info
+    return {
+      id: member.userId,
+      name: "Unknown User",
+      email: member.userId, // Use the userId as email
       avatar: undefined,
     };
   }
