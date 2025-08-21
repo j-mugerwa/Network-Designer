@@ -37,23 +37,6 @@ interface MembersTableProps {
 }
 
 // Helper function to get user data from member
-/*
-const getUserFromMember = (member: any) => {
-  if (typeof member.userId === "object" && member.userId !== null) {
-    // userId is a populated user object
-    return member.userId;
-  } else {
-    // userId is a string, return minimal user info
-    return {
-      id: member.userId,
-      name: "Unknown User",
-      email: member.userId,
-      avatar: undefined,
-    };
-  }
-};
-*/
-
 const getUserFromMember = (member: any) => {
   if (typeof member.userId === "object" && member.userId !== null) {
     // userId is a populated user object
@@ -72,6 +55,16 @@ const getUserFromMember = (member: any) => {
       avatar: undefined,
     };
   }
+};
+
+// Helper function to extract member user ID
+const getMemberUserId = (member: any): string => {
+  if (typeof member.userId === "string") {
+    return member.userId;
+  } else if (member.userId && typeof member.userId === "object") {
+    return member.userId.id || member.userId._id || "";
+  }
+  return "";
 };
 
 const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
@@ -205,13 +198,8 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
     );
   }
 
-  const currentUserIsOwner = currentTeam.createdBy === router.query.uid;
-  const currentUserIsAdmin = currentTeam.members.some((m) => {
-    const memberUserId = typeof m.userId === "string" ? m.userId : m.userId.id;
-    return (
-      memberUserId === router.query.uid && ["owner", "admin"].includes(m.role)
-    );
-  });
+  // Get current user ID
+  const currentUserId = router.query.uid as string;
 
   return (
     <TableContainer component={Paper}>
@@ -227,13 +215,24 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
         <TableBody>
           {currentTeam.members.map((member) => {
             const memberUser = getUserFromMember(member);
-            const memberUserId =
-              typeof member.userId === "string"
-                ? member.userId
-                : member.userId.id;
-            const isCurrentUser = memberUserId === router.query.uid;
+            const memberUserId = getMemberUserId(member);
+
+            // Check if this member is the current user
+            const isCurrentUser = memberUserId === currentUserId;
+
+            // Check if current user has admin permissions
+            const currentUserIsAdmin = currentTeam.members.some((m) => {
+              const mUserId = getMemberUserId(m);
+              return (
+                mUserId === currentUserId && ["owner", "admin"].includes(m.role)
+              );
+            });
+
+            const currentUserIsOwner = currentTeam.createdBy === currentUserId;
             const canRemove =
-              currentUserIsAdmin && !isCurrentUser && member.role !== "owner";
+              (currentUserIsAdmin || currentUserIsOwner) &&
+              !isCurrentUser &&
+              member.role !== "owner";
 
             return (
               <TableRow key={memberUserId} hover>
@@ -274,7 +273,7 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
                   {canRemove && (
                     <IconButton
                       aria-label="member actions"
-                      onClick={(e) => handleMenuOpen(e, memberUserId || "")}
+                      onClick={(e) => handleMenuOpen(e, memberUserId)}
                     >
                       <MoreVert />
                     </IconButton>
