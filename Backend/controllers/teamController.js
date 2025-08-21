@@ -70,58 +70,8 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 // @desc    Get single team
 // @route   GET /api/teams/:id
 // @access  Private (Team members only)
+
 /*
-const getTeam = asyncHandler(async (req, res, next) => {
-  const { id } = req.params;
-
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-    return next(new AppError("Invalid team ID", 400));
-  }
-
-  const team = await Team.findOne({
-    _id: id,
-    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
-  });
-
-  if (!team) {
-    return next(AppError.notFound("Team not found or access denied"));
-  }
-
-  // Manually populate owner and members
-  const [owner, membersWithUsers] = await Promise.all([
-    User.findOne({ firebaseUID: team.createdBy }).select("name email avatar"),
-    Promise.all(
-      team.members.map(async (member) => {
-        const user = await User.findOne({ firebaseUID: member.userId }).select(
-          "name email avatar"
-        );
-        return {
-          ...member.toObject(),
-          userId: user || {
-            id: member.userId,
-            name: "Unknown User",
-            email: member.userId,
-          },
-        };
-      })
-    ),
-  ]);
-
-  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      ...team.toObject(),
-      owner,
-      members: membersWithUsers,
-      designCount,
-    },
-  });
-});
-*/
-
-//updated getTeam function
 const getTeam = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
@@ -210,6 +160,114 @@ const getTeam = asyncHandler(async (req, res, next) => {
   };
 
   // Replace members with populated data
+  responseData.members = membersWithUsers;
+
+  res.status(200).json({
+    status: "success",
+    data: responseData,
+  });
+});
+*/
+
+//updated getTeam function
+const getTeam = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return next(new AppError("Invalid team ID", 400));
+  }
+
+  const team = await Team.findOne({
+    _id: id,
+    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
+  });
+
+  if (!team) {
+    return next(AppError.notFound("Team not found or access denied"));
+  }
+
+  // Manually populate owner and members with proper user data
+  const [owner, membersWithUsers] = await Promise.all([
+    User.findOne({ firebaseUID: team.createdBy }).select("name email avatar"),
+    Promise.all(
+      team.members.map(async (member) => {
+        try {
+          let user = null;
+
+          // Check if member.userId is a Firebase UID (long string) or MongoDB ObjectId
+          if (member.userId.length === 28) {
+            // Find user by firebaseUID
+            user = await User.findOne({ firebaseUID: member.userId }).select(
+              "name email avatar"
+            );
+          } else if (mongoose.Types.ObjectId.isValid(member.userId)) {
+            // Find user by MongoDB _id
+            user = await User.findById(member.userId).select(
+              "name email avatar firebaseUID"
+            );
+          }
+
+          if (user) {
+            return {
+              ...member.toObject(),
+              userId: {
+                _id: user._id,
+                id: user.firebaseUID || user._id.toString(), // Use firebaseUID if available, otherwise _id
+                name: user.name || user.email, // Use email if name is not available
+                email: user.email,
+                avatar: user.avatar,
+              },
+            };
+          } else {
+            // If user not found, create a minimal user object with available data
+            return {
+              ...member.toObject(),
+              userId: {
+                id: member.userId,
+                name: "Unknown User",
+                email: member.userId, // Using the userId as email
+                avatar: undefined,
+              },
+            };
+          }
+        } catch (error) {
+          console.error("Error populating member:", error);
+          return {
+            ...member.toObject(),
+            userId: {
+              id: member.userId,
+              name: "Unknown User",
+              email: member.userId,
+              avatar: undefined,
+            },
+          };
+        }
+      })
+    ),
+  ]);
+
+  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
+
+  // Prepare response data
+  const responseData = {
+    ...team.toObject(),
+    designCount,
+    owner: owner
+      ? {
+          _id: owner._id,
+          id: owner.firebaseUID,
+          name: owner.name || owner.email,
+          email: owner.email,
+          avatar: owner.avatar,
+        }
+      : {
+          id: team.createdBy,
+          name: "Unknown Owner",
+          email: team.createdBy,
+        },
+  };
+
+  // populated data
   responseData.members = membersWithUsers;
 
   res.status(200).json({
