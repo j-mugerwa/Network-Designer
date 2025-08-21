@@ -70,38 +70,8 @@ const getUserTeams = asyncHandler(async (req, res, next) => {
 // @desc    Get single team
 // @route   GET /api/teams/:id
 // @access  Private (Team members only)
+
 /*
-const getTeam = asyncHandler(async (req, res, next) => {
-  // In getTeam function
-  const team = await Team.findOne({
-    _id: req.params.id,
-    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
-  })
-    .populate({
-      path: "owner",
-      select: "name email avatar",
-    })
-    .populate({
-      path: "members.userId",
-      select: "name email avatar",
-    });
-
-  if (!team) {
-    return next(AppError.notFound("Team not found or access denied"));
-  }
-
-  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      ...team.toObject(),
-      designCount,
-    },
-  });
-});
-*/
-
 const getTeam = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
@@ -133,6 +103,56 @@ const getTeam = asyncHandler(async (req, res, next) => {
     status: "success",
     data: {
       ...team.toObject(),
+      designCount,
+    },
+  });
+});
+*/
+
+const getTeam = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return next(new AppError("Invalid team ID", 400));
+  }
+
+  const team = await Team.findOne({
+    _id: id,
+    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
+  });
+
+  if (!team) {
+    return next(AppError.notFound("Team not found or access denied"));
+  }
+
+  // Manually populate owner and members
+  const [owner, membersWithUsers] = await Promise.all([
+    User.findOne({ firebaseUID: team.createdBy }).select("name email avatar"),
+    Promise.all(
+      team.members.map(async (member) => {
+        const user = await User.findOne({ firebaseUID: member.userId }).select(
+          "name email avatar"
+        );
+        return {
+          ...member.toObject(),
+          userId: user || {
+            id: member.userId,
+            name: "Unknown User",
+            email: member.userId,
+          },
+        };
+      })
+    ),
+  ]);
+
+  const designCount = await NetworkDesign.countDocuments({ teamId: team._id });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      ...team.toObject(),
+      owner,
+      members: membersWithUsers,
       designCount,
     },
   });
