@@ -248,10 +248,12 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
                     </Avatar>
                     <Box>
                       <Typography fontWeight="medium">
-                        {memberUser.name}
+                        {memberUser.name || memberUser.email || "Unknown User"}
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
-                        {memberUser.email}
+                        {memberUser.email ||
+                          memberUser.id ||
+                          "No email available"}
                       </Typography>
                     </Box>
                   </Box>
