@@ -8,15 +8,39 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import MembersTable from "@/components/features/team/MembersTable";
 import { useRouter } from "next/router";
 import { ArrowBack } from "@mui/icons-material";
-import { GetServerSideProps } from "next";
 
-interface TeamMembersPageProps {
-  teamId: string | null;
-}
-
-const TeamMembersPage: React.FC<TeamMembersPageProps> = ({ teamId }) => {
+const TeamMembersPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const { id } = router.query;
+  const [teamId, setTeamId] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log("Router query id:", id, "Type:", typeof id);
+    console.log("Router query:", router.query);
+
+    // Handle the case where id is the string "undefined"
+    if (id === "undefined") {
+      console.error("Received 'undefined' string as team ID");
+      // Try to get the ID from the URL path as a fallback
+      const pathParts = router.asPath.split("/");
+      const pathId = pathParts[pathParts.length - 1];
+      if (pathId && pathId !== "members" && pathId !== "undefined") {
+        console.log("Using ID from URL path:", pathId);
+        setTeamId(pathId);
+        return;
+      }
+      return;
+    }
+
+    if (id && typeof id === "string" && id !== "undefined") {
+      console.log("Setting teamId:", id);
+      setTeamId(id);
+    } else if (Array.isArray(id) && id.length > 0 && id[0] !== "undefined") {
+      console.log("Setting teamId from array:", id[0]);
+      setTeamId(id[0]);
+    }
+  }, [id, router.asPath]);
 
   const handleBack = () => {
     router.push("/team/");
@@ -28,15 +52,20 @@ const TeamMembersPage: React.FC<TeamMembersPageProps> = ({ teamId }) => {
     }
   };
 
-  console.log("Team ID from server props:", teamId);
+  console.log("Current teamId state:", teamId);
 
-  if (!teamId) {
+  // Check if we have a valid teamId
+  if (!teamId || teamId === "undefined") {
     return (
       <AppLayout title="Team Members">
         <div className="container mx-auto px-4 py-8">
           <Alert severity="error">
             Team ID is missing or invalid. Please go back and try again.
           </Alert>
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Router ID: {JSON.stringify(id)}
+          </Typography>
+          <Typography variant="body2">Current path: {router.asPath}</Typography>
           <Button onClick={handleBack} sx={{ mt: 2 }}>
             Back to Teams
           </Button>
@@ -83,34 +112,6 @@ const TeamMembersPage: React.FC<TeamMembersPageProps> = ({ teamId }) => {
       </div>
     </AppLayout>
   );
-};
-
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { id } = context.params || {};
-
-  console.log("ServerSideProps - Team ID:", id);
-
-  // Check if id is valid
-  if (
-    !id ||
-    id === "undefined" ||
-    (Array.isArray(id) && id[0] === "undefined")
-  ) {
-    return {
-      props: {
-        teamId: null,
-      },
-    };
-  }
-
-  // Handle both string and array cases
-  const teamId = Array.isArray(id) ? id[0] : id;
-
-  return {
-    props: {
-      teamId,
-    },
-  };
 };
 
 export default TeamMembersPage;
