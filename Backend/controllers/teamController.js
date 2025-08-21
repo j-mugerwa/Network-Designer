@@ -178,6 +178,98 @@ const getTeam = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get all members from teams owned by current user
+// @route   GET /api/teams/members/owned
+// @access  Private (Team owners only)
+const getMembersFromOwnedTeams = asyncHandler(async (req, res, next) => {
+  try {
+    // Find all teams owned by the current user
+    const ownedTeams = await Team.find({
+      createdBy: req.user.uid,
+    }).select("_id name members");
+
+    if (!ownedTeams || ownedTeams.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        results: 0,
+        data: [],
+      });
+    }
+
+    // Collect all unique members from all owned teams
+    const allMembers = [];
+    const seenUserIds = new Set();
+
+    for (const team of ownedTeams) {
+      for (const member of team.members) {
+        // Avoid duplicates
+        if (!seenUserIds.has(member.userId.toString())) {
+          seenUserIds.add(member.userId.toString());
+
+          // Find user details
+          let user = null;
+          if (member.userId.length === 28) {
+            // Firebase UID
+            user = await User.findOne({ firebaseUID: member.userId }).select(
+              "name email avatar"
+            );
+          } else if (mongoose.Types.ObjectId.isValid(member.userId)) {
+            user = await User.findById(member.userId).select(
+              "name email avatar firebaseUID"
+            );
+          }
+
+          allMembers.push({
+            userId: member.userId,
+            user: user
+              ? {
+                  id: user.firebaseUID || user._id.toString(),
+                  name: user.name || user.email,
+                  email: user.email,
+                  avatar: user.avatar,
+                }
+              : {
+                  id: member.userId,
+                  name: "Unknown User",
+                  email: member.userId,
+                },
+            teams: [
+              {
+                teamId: team._id,
+                teamName: team.name,
+                role: member.role,
+                joinedAt: member.joinedAt,
+              },
+            ],
+          });
+        } else {
+          // If user already exists, just add the team info
+          const existingMember = allMembers.find(
+            (m) => m.userId === member.userId.toString()
+          );
+          if (existingMember) {
+            existingMember.teams.push({
+              teamId: team._id,
+              teamName: team.name,
+              role: member.role,
+              joinedAt: member.joinedAt,
+            });
+          }
+        }
+      }
+    }
+
+    res.status(200).json({
+      status: "success",
+      results: allMembers.length,
+      data: allMembers,
+    });
+  } catch (error) {
+    console.error("Error fetching members from owned teams:", error);
+    return next(new AppError("Failed to fetch team members", 500));
+  }
+});
+
 // @desc    Update team
 // @route   PUT /api/teams/:id
 // @access  Private (Team owner/admins only)
@@ -655,6 +747,7 @@ module.exports = {
   createTeam,
   getUserTeams,
   getTeam,
+  getMembersFromOwnedTeams,
   updateTeam,
   addTeamMember,
   inviteToTeam,

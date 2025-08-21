@@ -110,7 +110,7 @@ const DashboardSidebar = () => {
         { name: "Show Invitations", path: "/team/invitations" },
         { name: "Create Team", path: "/team/create" },
         { name: "Invite Individual", path: "/team/invite" },
-        { name: "Show Individuals", path: "/team/individuals" },
+        { name: "Show Individuals", path: "/team/members" },
       ],
     },
     {
