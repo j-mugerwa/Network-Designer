@@ -18,23 +18,37 @@ const TeamMembersPage = () => {
   useEffect(() => {
     console.log("Router query id:", id, "Type:", typeof id);
     console.log("Router query:", router.query);
+    console.log("Full path:", router.asPath);
 
-    // Handle the case where id is the string "undefined"
-    if (id === "undefined") {
-      console.error("Received 'undefined' string as team ID");
-      // Try to get the ID from the URL path as a fallback
+    // Handle the case where id is the string "undefined" or missing
+    if (id === "undefined" || !id) {
+      console.error("Team ID missing from query, extracting from URL...");
+
+      // Extract team ID from URL pattern: /team/{id}/members
       const pathParts = router.asPath.split("/");
-      const pathId = pathParts[pathParts.length - 1];
-      if (pathId && pathId !== "members" && pathId !== "undefined") {
-        console.log("Using ID from URL path:", pathId);
-        setTeamId(pathId);
-        return;
+      const teamIndex = pathParts.indexOf("team") + 1;
+
+      if (
+        teamIndex > 0 &&
+        teamIndex < pathParts.length &&
+        pathParts[teamIndex] !== "members"
+      ) {
+        const extractedId = pathParts[teamIndex];
+        console.log("Extracted team ID from URL:", extractedId);
+
+        if (extractedId && extractedId !== "undefined") {
+          setTeamId(extractedId);
+          return;
+        }
       }
+
+      console.error("Could not extract team ID from URL");
       return;
     }
 
+    // Handle valid ID cases
     if (id && typeof id === "string" && id !== "undefined") {
-      console.log("Setting teamId:", id);
+      console.log("Setting teamId from query:", id);
       setTeamId(id);
     } else if (Array.isArray(id) && id.length > 0 && id[0] !== "undefined") {
       console.log("Setting teamId from array:", id[0]);

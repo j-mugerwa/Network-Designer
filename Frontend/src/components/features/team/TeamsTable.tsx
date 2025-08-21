@@ -123,7 +123,7 @@ const TeamsTable: React.FC = () => {
         </TableHead>
         <TableBody>
           {teams.map((team) => (
-            <TableRow key={team.id} hover>
+            <TableRow key={team._id || team.id} hover>
               <TableCell>
                 <Typography fontWeight="medium">{team.name}</Typography>
               </TableCell>
@@ -139,11 +139,11 @@ const TeamsTable: React.FC = () => {
                   onClick={() => {
                     console.log(
                       "Navigating to team members for team:",
-                      team.id,
+                      team._id,
                       "Team object:",
                       team
                     );
-                    router.push(`/team/${team.id}/members`);
+                    router.push(`/team/${team._id}/members`);
                   }}
                 >
                   {team.members.length} members
@@ -152,7 +152,7 @@ const TeamsTable: React.FC = () => {
               <TableCell>
                 <IconButton
                   aria-label="team actions"
-                  onClick={(e) => handleMenuOpen(e, team.id)}
+                  onClick={(e) => handleMenuOpen(e, team._id || team.id || "")}
                 >
                   <MoreVert />
                 </IconButton>
