@@ -201,14 +201,25 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
   // Get current user ID from router query
   const currentUserId = router.query.uid as string;
 
-  // Check if current user is owner or admin
+  // Debug logging
+  console.log("=== DEBUG MEMBERS TABLE ===");
+  console.log("Current user ID:", currentUserId);
+  console.log("Team createdBy:", currentTeam.createdBy);
+  console.log(
+    "Current user is team owner:",
+    currentTeam.createdBy === currentUserId
+  );
+  console.log(
+    "Team members:",
+    currentTeam.members.map((m) => ({
+      userId: getMemberUserId(m),
+      role: m.role,
+      isCurrentUser: getMemberUserId(m) === currentUserId,
+    }))
+  );
+
+  // Only team owners can remove members
   const currentUserIsOwner = currentTeam.createdBy === currentUserId;
-  const currentUserIsAdmin = currentTeam.members.some((m) => {
-    const memberUserId = getMemberUserId(m);
-    return (
-      memberUserId === currentUserId && ["owner", "admin"].includes(m.role)
-    );
-  });
 
   return (
     <TableContainer component={Paper}>
@@ -229,11 +240,18 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
             // Check if this member is the current user
             const isCurrentUser = memberUserId === currentUserId;
 
-            // Check if current user can remove this member
+            // Only team owners can remove members (except themselves and other owners)
             const canRemove =
-              (currentUserIsAdmin || currentUserIsOwner) &&
-              !isCurrentUser &&
-              member.role !== "owner";
+              currentUserIsOwner && !isCurrentUser && member.role !== "owner";
+
+            // Debug logging for each member
+            console.log(`Member ${memberUser.name}:`, {
+              memberUserId,
+              isCurrentUser,
+              role: member.role,
+              canRemove,
+              currentUserIsOwner,
+            });
 
             return (
               <TableRow key={memberUserId} hover>
