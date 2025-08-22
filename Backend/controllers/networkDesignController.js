@@ -4,7 +4,7 @@ const User = require("../models/UserModel");
 const Team = require("../models/TeamModel");
 const { validateDesignInput } = require("../middlewares/validateDesignInput");
 
-//Updated creation.
+// Design creation.
 // @desc    Create a new network design
 // @route   POST /api/designs
 // @access  Private
