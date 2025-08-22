@@ -8,6 +8,7 @@ const {
   getUserTeams,
   getTeam,
   updateTeam,
+  deleteTeam,
   addTeamMember,
   removeTeamMember,
   inviteToTeam,
@@ -32,6 +33,7 @@ router.get("/", getUserTeams);
 router.get("/members", getMembersFromOwnedTeams);
 router.get("/:id", getTeam);
 router.put("/:id", updateTeam);
+router.delete("/:id", deleteTeam);
 
 router.post("/:id/members", addTeamMember);
 router.delete("/:id/members/:memberId", removeTeamMember);

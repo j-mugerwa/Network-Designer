@@ -261,6 +261,22 @@ export const fetchSentInvitations = createAsyncThunk(
   }
 );
 
+//Delete a team
+export const deleteTeam = createAsyncThunk<
+  string, // Return the deleted team ID
+  string, // teamId parameter
+  { rejectValue: string }
+>("team/delete", async (teamId, { rejectWithValue }) => {
+  try {
+    await axios.delete(`/team/${teamId}`);
+    return teamId;
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to delete team"
+    );
+  }
+});
+
 //Delete an invitation
 export const deleteInvitation = createAsyncThunk(
   "team/deleteInvitation",
@@ -403,6 +419,24 @@ const teamSlice = createSlice({
       .addCase(updateTeam.rejected, (state, action) => {
         state.processing = false;
         state.error = action.payload || "Failed to update team";
+      })
+      //Delete a team
+      .addCase(deleteTeam.pending, (state) => {
+        state.processing = true;
+        state.error = null;
+      })
+      .addCase(deleteTeam.fulfilled, (state, action) => {
+        state.processing = false;
+        // Remove the deleted team from the state
+        state.teams = state.teams.filter((team) => team.id !== action.payload);
+        if (state.currentTeam?.id === action.payload) {
+          state.currentTeam = null;
+        }
+        state.lastOperation = "delete";
+      })
+      .addCase(deleteTeam.rejected, (state, action) => {
+        state.processing = false;
+        state.error = action.payload || "Failed to delete team";
       })
 
       // Add Team Member

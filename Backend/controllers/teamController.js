@@ -743,12 +743,56 @@ const removeTeamMember = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Delete team
+// @route   DELETE /api/team/:id
+// @access  Private (Team owner only)
+const deleteTeam = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return next(new AppError("Invalid team ID", 400));
+  }
+
+  // Verify user is the owner of the team
+  const team = await Team.findOne({
+    _id: id,
+    createdBy: req.user.uid,
+  });
+
+  if (!team) {
+    return next(AppError.unauthorized("Only team owners can delete teams"));
+  }
+
+  // Check if team has any designs (optional - you might want to prevent deletion if designs exist)
+  const designCount = await NetworkDesign.countDocuments({ teamId: id });
+  if (designCount > 0) {
+    return next(
+      new AppError(
+        "Cannot delete team with existing designs. Please delete all designs first.",
+        400
+      )
+    );
+  }
+
+  // Delete the team
+  await Team.findByIdAndDelete(id);
+
+  // Also delete any pending invitations for this team
+  await Invitation.deleteMany({ team: id });
+
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});
+
 module.exports = {
   createTeam,
   getUserTeams,
   getTeam,
   getMembersFromOwnedTeams,
   updateTeam,
+  deleteTeam,
   addTeamMember,
   inviteToTeam,
   acceptInvite,
