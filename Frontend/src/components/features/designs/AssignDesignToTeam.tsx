@@ -94,7 +94,7 @@ const AssignDesignToTeam: React.FC<AssignDesignToTeamProps> = ({
                 <em>None (Personal Design)</em>
               </MenuItem>
               {teams.map((team) => (
-                <MenuItem key={team.id} value={team.id}>
+                <MenuItem key={team._id} value={team._id}>
                   {team.name}
                 </MenuItem>
               ))}
