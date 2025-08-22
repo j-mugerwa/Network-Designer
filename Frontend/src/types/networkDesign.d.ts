@@ -140,6 +140,7 @@ export interface NetworkDesignUI extends CreateDesignPayload {
 export interface CreateDesignPayload {
   designName: string;
   description?: string;
+  teamId?: string; //Added teamId
   isExistingNetwork?: boolean;
   existingNetworkDetails?: ExistingNetworkDetails;
   requirements?: Partial<DesignRequirements>;

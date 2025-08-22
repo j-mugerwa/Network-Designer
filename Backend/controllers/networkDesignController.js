@@ -499,10 +499,20 @@ const generateReport = asyncHandler(async (req, res) => {
 // @desc    Get all designs for authenticated user
 // @route   GET /api/designs
 // @access  Private
+
 /*
 const getUserDesigns = asyncHandler(async (req, res) => {
   const { status, limit, page, search } = req.query;
-  const query = { userId: req.user._id };
+
+  const query = {
+    $or: [
+      { userId: req.user._id }, // User's own designs
+      {
+        teamId: { $exists: true, $ne: null },
+        teamId: { $in: await getUsersTeamIds(req.user.uid) },
+      }, // Team designs user has access to
+    ],
+  };
 
   if (status) {
     query.designStatus = status;
@@ -565,13 +575,16 @@ const getUserDesigns = asyncHandler(async (req, res) => {
 const getUserDesigns = asyncHandler(async (req, res) => {
   const { status, limit, page, search } = req.query;
 
+  // Get user's team IDs first
+  const userTeamIds = await getUsersTeamIds(req.user.uid);
+
+  // Build the query correctly
   const query = {
     $or: [
       { userId: req.user._id }, // User's own designs
       {
-        teamId: { $exists: true, $ne: null },
-        teamId: { $in: await getUsersTeamIds(req.user.uid) },
-      }, // Team designs user has access to
+        teamId: { $exists: true, $ne: null, $in: userTeamIds }, // Team designs user has access to
+      },
     ],
   };
 
@@ -581,6 +594,7 @@ const getUserDesigns = asyncHandler(async (req, res) => {
 
   if (search) {
     query.$or = [
+      ...query.$or, // Keep the existing $or conditions
       { designName: { $regex: search, $options: "i" } },
       { description: { $regex: search, $options: "i" } },
     ];
@@ -595,7 +609,6 @@ const getUserDesigns = asyncHandler(async (req, res) => {
       locale: "en",
       strength: 2,
     },
-    // Force plain objects without virtuals
     lean: true,
     leanWithId: false,
   };
@@ -603,10 +616,9 @@ const getUserDesigns = asyncHandler(async (req, res) => {
   try {
     const result = await NetworkDesign.paginate(query, options);
 
-    // Since we're using lean, we need to manually add deviceCount if needed
     const designs = result.docs.map((design) => ({
       ...design,
-      deviceCount: 0, // Since we excluded devices, we can't calculate this
+      deviceCount: 0,
     }));
 
     res.json({

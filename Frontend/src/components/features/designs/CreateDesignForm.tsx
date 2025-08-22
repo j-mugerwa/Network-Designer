@@ -1,7 +1,8 @@
 // src/components/features/network-design/CreateDesignForm.tsx
 import { useState, useCallback, useEffect } from "react";
-import { useAppDispatch } from "@/store/store";
+import { useAppDispatch, useAppSelector } from "@/store/store";
 import { createDesign, updateDesign } from "@/store/slices/networkDesignSlice";
+import { fetchUserTeams, selectTeams } from "@/store/slices/teamSlice";
 import { useRouter } from "next/router";
 import {
   Box,
@@ -23,6 +24,7 @@ import {
   IconButton,
   Snackbar,
   Alert,
+  CircularProgress,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -96,6 +98,7 @@ const INITIAL_FORM_DATA: CreateDesignPayload = {
   designName: "",
   description: "",
   isExistingNetwork: false,
+  teamId: "", // Add teamId field
   existingNetworkDetails: {
     currentTopology: undefined,
     currentIssues: [],
@@ -152,6 +155,7 @@ export const CreateDesignForm = ({
 }: CreateDesignFormProps) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const teams = useAppSelector(selectTeams);
   const [error, setError] = useState("");
   const [expandedSection, setExpandedSection] = useState<string | false>(
     "basic"
@@ -159,6 +163,23 @@ export const CreateDesignForm = ({
   const [formData, setFormData] =
     useState<CreateDesignPayload>(INITIAL_FORM_DATA);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+
+  // Fetch user teams on component mount
+  useEffect(() => {
+    const loadTeams = async () => {
+      setTeamsLoading(true);
+      try {
+        await dispatch(fetchUserTeams()).unwrap();
+      } catch (error) {
+        console.error("Failed to fetch teams:", error);
+      } finally {
+        setTeamsLoading(false);
+      }
+    };
+
+    loadTeams();
+  }, [dispatch]);
 
   // Initialize form with initialData if in edit mode
   useEffect(() => {
@@ -167,6 +188,7 @@ export const CreateDesignForm = ({
         designName: initialData.designName,
         description: initialData.description,
         isExistingNetwork: initialData.isExistingNetwork,
+        teamId: initialData.teamId || "", // Include teamId
         existingNetworkDetails: initialData.existingNetworkDetails
           ? { ...initialData.existingNetworkDetails }
           : INITIAL_FORM_DATA.existingNetworkDetails,
@@ -186,6 +208,14 @@ export const CreateDesignForm = ({
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  }, []);
+
+  const handleSelectChange = useCallback((e: any) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
     }));
   }, []);
 
@@ -296,6 +326,7 @@ export const CreateDesignForm = ({
     try {
       const payload: CreateDesignPayload = {
         ...formData,
+        teamId: formData.teamId || undefined, // Send undefined if empty string
         existingNetworkDetails: formData.isExistingNetwork
           ? {
               ...formData.existingNetworkDetails,
@@ -377,6 +408,41 @@ export const CreateDesignForm = ({
                     inputProps={{ maxLength: 500 }}
                   />
                 </GridItem>
+
+                {/* Team Assignment Dropdown */}
+                <GridItem sx={{ flex: "1 1 300px" }}>
+                  <FormControl fullWidth margin="normal">
+                    <InputLabel>Assign to Team (Optional)</InputLabel>
+                    <Select
+                      name="teamId"
+                      value={formData.teamId || ""}
+                      onChange={handleSelectChange}
+                      label="Assign to Team (Optional)"
+                      disabled={teamsLoading}
+                    >
+                      <MenuItem value="">
+                        <em>Personal Design (Not shared with team)</em>
+                      </MenuItem>
+                      {teams.map((team) => (
+                        <MenuItem key={team._id} value={team._id}>
+                          {team.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {teamsLoading && (
+                      <CircularProgress
+                        size={24}
+                        sx={{
+                          position: "absolute",
+                          right: 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                        }}
+                      />
+                    )}
+                  </FormControl>
+                </GridItem>
+
                 <GridItem sx={{ width: "100%" }}>
                   <FormControlLabel
                     control={

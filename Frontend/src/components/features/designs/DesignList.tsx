@@ -39,6 +39,12 @@ export const DesignList = () => {
     dispatch(fetchUserDesigns({ page: 1, limit: 10 }));
   }, [dispatch]);
 
+  /*
+  useEffect(() => {
+    dispatch(fetchUserDesigns({ page: 1, limit: 10 }));
+  }, [dispatch]);
+  */
+
   const handlePageChange = (_: any, newPage: number) => {
     dispatch(fetchUserDesigns({ page: newPage, limit: 10 }));
   };
