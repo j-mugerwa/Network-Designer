@@ -8,6 +8,11 @@ const networkDesignSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    teamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
+      default: null,
+    },
     designName: {
       type: String,
       required: true,
@@ -218,6 +223,10 @@ networkDesignSchema.plugin(mongoosePaginate);
 // Add index for better query performance
 networkDesignSchema.index({ userId: 1, designName: 1 }, { unique: true });
 networkDesignSchema.index({ userId: 1, designStatus: 1 });
+
+//Team Indexes
+networkDesignSchema.index({ teamId: 1, designStatus: 1 });
+networkDesignSchema.index({ userId: 1, teamId: 1 });
 
 // Middleware to update lastModified before save
 networkDesignSchema.pre("save", function (next) {

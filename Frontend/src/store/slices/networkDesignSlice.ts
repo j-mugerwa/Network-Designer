@@ -130,6 +130,64 @@ export const fetchUserDesigns = createAsyncThunk<
   }
 );
 
+export const fetchTeamDesigns = createAsyncThunk<
+  { designs: NetworkDesignUI[]; pagination: any },
+  {
+    teamId: string;
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  },
+  { rejectValue: string }
+>(
+  "designs/fetchTeamDesigns",
+  async (
+    { teamId, page = 1, limit = 10, status, search },
+    { rejectWithValue }
+  ) => {
+    try {
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+      if (status) params.append("status", status);
+      if (search) params.append("search", search);
+
+      const response = await axios.get<{
+        data: any[];
+        pagination: any;
+      }>(`/networkdesign/${teamId}?${params.toString()}`);
+
+      return {
+        designs: response.data.data.map(convertToUI),
+        pagination: response.data.pagination,
+      };
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to fetch team designs"
+      );
+    }
+  }
+);
+
+export const assignDesignToTeam = createAsyncThunk<
+  NetworkDesignUI,
+  { designId: string; teamId: string },
+  { rejectValue: string }
+>("designs/assignToTeam", async ({ designId, teamId }, { rejectWithValue }) => {
+  try {
+    const response = await axios.put<{ data: NetworkDesign }>(
+      `/networkdesign/${designId}/assign-to-team`,
+      { teamId }
+    );
+    return convertToUI(response.data.data);
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to assign design to team"
+    );
+  }
+});
+
 export const fetchDesignById = createAsyncThunk<
   NetworkDesignUI,
   string,
@@ -228,6 +286,35 @@ const designSlice = createSlice({
       .addCase(fetchUserDesigns.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to fetch designs";
+      })
+      //Fetch team designs
+      .addCase(fetchTeamDesigns.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTeamDesigns.fulfilled, (state, action) => {
+        state.loading = false;
+        state.designs = action.payload.designs;
+        state.pagination = action.payload.pagination;
+      })
+      .addCase(fetchTeamDesigns.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch team designs";
+      })
+      //Assign a design to a team:
+      .addCase(assignDesignToTeam.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Update the design in the list
+          state.designs = state.designs.map((design) =>
+            design.id === action.payload.id ? action.payload : design
+          );
+          if (state.currentDesign?.id === action.payload.id) {
+            state.currentDesign = action.payload;
+          }
+        }
+      })
+      .addCase(assignDesignToTeam.rejected, (state, action) => {
+        state.error = action.payload || "Failed to assign design to team";
       })
       // Fetch single design
       .addCase(fetchDesignById.pending, (state) => {

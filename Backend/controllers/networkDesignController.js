@@ -1,8 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const NetworkDesign = require("../models/NetworkDesignModel");
 const User = require("../models/UserModel");
+const Team = require("../models/TeamModel");
 const { validateDesignInput } = require("../middlewares/validateDesignInput");
 
+//Updated creation.
 // @desc    Create a new network design
 // @route   POST /api/designs
 // @access  Private
@@ -13,7 +15,7 @@ const createDesign = asyncHandler(async (req, res) => {
   if (error) {
     const errorDetails = error.details.map((detail) => ({
       field: detail.path.join("."),
-      message: detail.message.replace(/['"]+/g, ""), // Remove quotes from error messages
+      message: detail.message.replace(/['"]+/g, ""),
     }));
 
     return res.status(400).json({
@@ -24,13 +26,29 @@ const createDesign = asyncHandler(async (req, res) => {
     });
   }
 
-  // Middleware already checked limits - use the info it attached
   const { current = 0, limit, remaining } = req.designLimitInfo || {};
+  const { teamId } = req.body; // Get teamId from request
 
   try {
+    // Verify team membership if teamId is provided
+    if (teamId) {
+      const team = await Team.findOne({
+        _id: teamId,
+        "members.userId": req.user.uid,
+      });
+
+      if (!team) {
+        return res.status(403).json({
+          success: false,
+          error: "You are not a member of this team",
+        });
+      }
+    }
+
     // Create design with validated data
     const design = await NetworkDesign.create({
       userId: req.user._id,
+      teamId: teamId || null,
       designName: validatedData.designName,
       description: validatedData.description,
       isExistingNetwork: validatedData.isExistingNetwork,
@@ -60,6 +78,7 @@ const createDesign = asyncHandler(async (req, res) => {
         status: design.designStatus,
         createdAt: design.createdAt,
         version: design.version,
+        teamId: design.teamId,
       },
       limits: {
         current: current + 1,
@@ -93,7 +112,6 @@ const createDesign = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Design creation error:", error);
 
-    // Handle duplicate design names
     if (error.code === 11000 && error.keyPattern?.designName) {
       return res.status(409).json({
         success: false,
@@ -114,53 +132,10 @@ const createDesign = asyncHandler(async (req, res) => {
 
 // @desc    Handle real-time design updates
 // @access  Private (Socket)
-/*
-const handleDesignUpdate = async (io, socket) => {
-  return async ({ teamId, designId, changes }) => {
-    try {
-      const Team = require("../models/TeamModel");
-      const team = await Team.findOne({
-        _id: teamId,
-        "members.userId": socket.user.id,
-      });
-
-      if (team) {
-        // Validate and save changes first
-        const updatedDesign = await NetworkDesign.findOneAndUpdate(
-          { _id: designId, teamId },
-          { $set: changes, $inc: { version: 1 } },
-          { new: true }
-        );
-
-        if (!updatedDesign) {
-          throw new Error("Design not found");
-        }
-
-        // Broadcast to team members
-        socket.to(`team_${teamId}`).emit("designUpdated", {
-          designId,
-          changes: updatedDesign,
-          updatedBy: socket.user.email,
-          timestamp: new Date(),
-        });
-
-        return { success: true };
-      }
-    } catch (error) {
-      console.error("Design update error:", error);
-      socket.emit("designUpdateError", {
-        error: error.message,
-        designId,
-      });
-    }
-  };
-};
-*/
 
 const handleDesignUpdate = async (io, socket) => {
   return async ({ teamId, designId, changes }) => {
     try {
-      const Team = require("../models/TeamModel");
       const NetworkDesign = require("../models/NetworkDesignModel");
 
       // Verify team membership and update lastModified
@@ -265,72 +240,6 @@ const handleDesignLock = async (io) => {
 // @route   PUT /api/designs/:id
 // @access  Private
 
-/*
-const updateDesign = asyncHandler(async (req, res) => {
-  const { error } = validateDesignInput(req.body, true);
-  if (error) {
-    return res.status(400).json({
-      success: false,
-      error: error.details[0].message,
-    });
-  }
-
-  const design = await NetworkDesign.findOne({
-    _id: req.params.id,
-    userId: req.user._id,
-  });
-
-  if (!design) {
-    return res.status(404).json({
-      success: false,
-      error: "Design not found or you don't have permission to edit it",
-    });
-  }
-
-  // Prevent updating archived designs
-  if (design.designStatus === "archived") {
-    return res.status(400).json({
-      success: false,
-      error: "Archived designs cannot be modified",
-    });
-  }
-
-  const { designName, description, isExistingNetwork, requirements } = req.body;
-
-  // Update design
-  const updatedDesign = await NetworkDesign.findByIdAndUpdate(
-    req.params.id,
-    {
-      designName,
-      description,
-      isExistingNetwork,
-      requirements,
-      $inc: { version: 1 },
-    },
-    { new: true, runValidators: true }
-  );
-
-  // Emit real-time update if socket exists
-  if (req.io && updatedDesign.teamId) {
-    req.io.to(`team_${updatedDesign.teamId}`).emit("designUpdated", {
-      designId: updatedDesign._id,
-      changes: updatedDesign,
-      updatedBy: req.user.email,
-      timestamp: new Date(),
-    });
-  }
-
-  res.json({
-    success: true,
-    message: "Design updated successfully",
-    data: {
-      design: updatedDesign,
-      changes: updatedDesign.modifiedPaths(),
-    },
-  });
-});
-*/
-
 const updateDesign = asyncHandler(async (req, res) => {
   const { error } = validateDesignInput(req.body, true);
   if (error) {
@@ -387,6 +296,137 @@ const updateDesign = asyncHandler(async (req, res) => {
       design: updatedDesign,
       changes: updatedDesign.modifiedPaths(),
       lastModified: updatedDesign.lastModified,
+    },
+  });
+});
+
+// New function to get designs for a team
+// @desc    Get designs for a team
+// @route   GET /api/designs/team/:teamId
+// @access  Private (Team members only)
+const getTeamDesigns = asyncHandler(async (req, res) => {
+  const { teamId } = req.params;
+  const { status, limit, page, search } = req.query;
+
+  // Verify team membership
+  const team = await Team.findOne({
+    _id: teamId,
+    "members.userId": req.user.uid,
+  });
+
+  if (!team) {
+    return res.status(403).json({
+      success: false,
+      error: "You are not a member of this team",
+    });
+  }
+
+  const query = { teamId };
+
+  if (status) {
+    query.designStatus = status;
+  }
+
+  if (search) {
+    query.$or = [
+      { designName: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const options = {
+    limit: parseInt(limit) || 10,
+    page: parseInt(page) || 1,
+    sort: { updatedAt: -1 },
+    select: "-devices -reports",
+    populate: {
+      path: "userId",
+      select: "name email",
+    },
+    lean: true,
+    leanWithId: false,
+  };
+
+  try {
+    const result = await NetworkDesign.paginate(query, options);
+
+    const designs = result.docs.map((design) => ({
+      ...design,
+      deviceCount: 0,
+      createdBy: design.userId, // Include creator info
+    }));
+
+    res.json({
+      success: true,
+      data: designs,
+      pagination: {
+        total: result.totalDocs,
+        limit: result.limit,
+        page: result.page,
+        pages: result.totalPages,
+        hasNextPage: result.hasNextPage,
+        hasPrevPage: result.hasPrevPage,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching team designs:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch team designs",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+// Assign a design to a team
+// @desc    Assign design to team
+// @route   PUT /api/designs/:id/assign-to-team
+// @access  Private (Design owner or team admin)
+const assignDesignToTeam = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { teamId } = req.body;
+
+  // Verify design exists and user owns it
+  const design = await NetworkDesign.findOne({
+    _id: id,
+    userId: req.user._id,
+  });
+
+  if (!design) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or you don't have permission",
+    });
+  }
+
+  // Verify team membership
+  const team = await Team.findOne({
+    _id: teamId,
+    "members.userId": req.user.uid,
+  });
+
+  if (!team) {
+    return res.status(403).json({
+      success: false,
+      error: "You are not a member of this team",
+    });
+  }
+
+  // Update design with team association
+  design.teamId = teamId;
+  design.lastModified = new Date();
+  design.version += 1;
+
+  await design.save();
+
+  res.json({
+    success: true,
+    message: "Design assigned to team successfully",
+    data: {
+      designId: design._id,
+      teamId: design.teamId,
+      teamName: team.name,
     },
   });
 });
@@ -459,9 +499,81 @@ const generateReport = asyncHandler(async (req, res) => {
 // @desc    Get all designs for authenticated user
 // @route   GET /api/designs
 // @access  Private
+/*
 const getUserDesigns = asyncHandler(async (req, res) => {
   const { status, limit, page, search } = req.query;
   const query = { userId: req.user._id };
+
+  if (status) {
+    query.designStatus = status;
+  }
+
+  if (search) {
+    query.$or = [
+      { designName: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const options = {
+    limit: parseInt(limit) || 10,
+    page: parseInt(page) || 1,
+    sort: { updatedAt: -1 },
+    select: "-devices -reports",
+    collation: {
+      locale: "en",
+      strength: 2,
+    },
+    // Force plain objects without virtuals
+    lean: true,
+    leanWithId: false,
+  };
+
+  try {
+    const result = await NetworkDesign.paginate(query, options);
+
+    // Since we're using lean, we need to manually add deviceCount if needed
+    const designs = result.docs.map((design) => ({
+      ...design,
+      deviceCount: 0, // Since we excluded devices, we can't calculate this
+    }));
+
+    res.json({
+      success: true,
+      data: designs,
+      pagination: {
+        total: result.totalDocs,
+        limit: result.limit,
+        page: result.page,
+        pages: result.totalPages,
+        hasNextPage: result.hasNextPage,
+        hasPrevPage: result.hasPrevPage,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching designs:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch the designs",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+*/
+
+const getUserDesigns = asyncHandler(async (req, res) => {
+  const { status, limit, page, search } = req.query;
+
+  const query = {
+    $or: [
+      { userId: req.user._id }, // User's own designs
+      {
+        teamId: { $exists: true, $ne: null },
+        teamId: { $in: await getUsersTeamIds(req.user.uid) },
+      }, // Team designs user has access to
+    ],
+  };
 
   if (status) {
     query.designStatus = status;
@@ -661,12 +773,23 @@ function estimateCost(design) {
   };
 }
 
+// Helper function to get user's team IDs
+async function getUsersTeamIds(userId) {
+  const teams = await Team.find({
+    "members.userId": userId,
+  }).select("_id");
+
+  return teams.map((team) => team._id);
+}
+
 module.exports = {
   createDesign,
   updateDesign,
   generateReport,
   getUserDesigns,
   getDesign,
+  getTeamDesigns,
+  assignDesignToTeam,
   archiveDesign,
   //Socket-Related
   handleDesignUpdate,

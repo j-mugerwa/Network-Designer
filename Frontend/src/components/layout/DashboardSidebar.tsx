@@ -71,6 +71,7 @@ const DashboardSidebar = () => {
         { name: "Create Design", path: "/designs/new" },
         { name: "Optimize Design", path: "/designs/optimize" },
         { name: "Show Designs", path: "/designs" },
+        { name: "Assign to Team", path: "/designs/assign-to-team" },
         { name: "Visualize Design", path: "/designs/visualize" },
       ],
     },

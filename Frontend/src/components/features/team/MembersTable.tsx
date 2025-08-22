@@ -209,6 +209,7 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
   const currentUserId = currentAuthUser?.uid; // This should be the Firebase UID
 
   // Debug logging
+  /*
   console.log("=== DEBUG MEMBERS TABLE ===");
   console.log("Current auth user (Firebase):", currentAuthUser);
   console.log("Current app user (Profile):", currentAppUser);
@@ -226,6 +227,7 @@ const MembersTable: React.FC<MembersTableProps> = ({ teamId }) => {
       isCurrentUser: getMemberUserId(m) === currentUserId,
     }))
   );
+  */
 
   // Only team owners can remove members
   const currentUserIsOwner = currentTeam.createdBy === currentUserId;
