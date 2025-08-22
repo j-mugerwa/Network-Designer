@@ -504,77 +504,6 @@ const generateReport = asyncHandler(async (req, res) => {
 const getUserDesigns = asyncHandler(async (req, res) => {
   const { status, limit, page, search } = req.query;
 
-  const query = {
-    $or: [
-      { userId: req.user._id }, // User's own designs
-      {
-        teamId: { $exists: true, $ne: null },
-        teamId: { $in: await getUsersTeamIds(req.user.uid) },
-      }, // Team designs user has access to
-    ],
-  };
-
-  if (status) {
-    query.designStatus = status;
-  }
-
-  if (search) {
-    query.$or = [
-      { designName: { $regex: search, $options: "i" } },
-      { description: { $regex: search, $options: "i" } },
-    ];
-  }
-
-  const options = {
-    limit: parseInt(limit) || 10,
-    page: parseInt(page) || 1,
-    sort: { updatedAt: -1 },
-    select: "-devices -reports",
-    collation: {
-      locale: "en",
-      strength: 2,
-    },
-    // Force plain objects without virtuals
-    lean: true,
-    leanWithId: false,
-  };
-
-  try {
-    const result = await NetworkDesign.paginate(query, options);
-
-    // Since we're using lean, we need to manually add deviceCount if needed
-    const designs = result.docs.map((design) => ({
-      ...design,
-      deviceCount: 0, // Since we excluded devices, we can't calculate this
-    }));
-
-    res.json({
-      success: true,
-      data: designs,
-      pagination: {
-        total: result.totalDocs,
-        limit: result.limit,
-        page: result.page,
-        pages: result.totalPages,
-        hasNextPage: result.hasNextPage,
-        hasPrevPage: result.hasPrevPage,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching designs:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch the designs",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
-
-const getUserDesigns = asyncHandler(async (req, res) => {
-  const { status, limit, page, search } = req.query;
-
   // Get user's team IDs first
   const userTeamIds = await getUsersTeamIds(req.user.uid);
 
@@ -643,16 +572,144 @@ const getUserDesigns = asyncHandler(async (req, res) => {
     });
   }
 });
+*/
+
+// @desc    Get all designs for authenticated user
+// @route   GET /api/designs
+// @access  Private
+const getUserDesigns = asyncHandler(async (req, res) => {
+  const { status, limit, page, search } = req.query;
+
+  // Get user's team IDs first
+  const userTeamIds = await getUsersTeamIds(req.user.uid);
+
+  // Build the base query.
+  const baseQuery = {
+    $or: [
+      { userId: req.user._id }, // User's own designs
+      { teamId: { $in: userTeamIds } }, // Team designs user has access to
+    ],
+  };
+
+  // Add status filter if provided
+  if (status) {
+    baseQuery.designStatus = status;
+  }
+
+  // Handle search separately
+  let finalQuery = { ...baseQuery };
+  if (search) {
+    finalQuery = {
+      $and: [
+        baseQuery,
+        {
+          $or: [
+            { designName: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+          ],
+        },
+      ],
+    };
+  }
+
+  const options = {
+    limit: parseInt(limit) || 10,
+    page: parseInt(page) || 1,
+    sort: { updatedAt: -1 },
+    select: "-devices -reports",
+    collation: {
+      locale: "en",
+      strength: 2,
+    },
+    lean: true,
+    leanWithId: false,
+  };
+
+  try {
+    const result = await NetworkDesign.paginate(finalQuery, options);
+
+    const designs = result.docs.map((design) => ({
+      ...design,
+      deviceCount: 0,
+    }));
+
+    res.json({
+      success: true,
+      data: designs,
+      pagination: {
+        total: result.totalDocs,
+        limit: result.limit,
+        page: result.page,
+        pages: result.totalPages,
+        hasNextPage: result.hasNextPage,
+        hasPrevPage: result.hasPrevPage,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching designs:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch the designs",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
 
 // @desc    Get single design
 // @route   GET /api/designs/:id
 // @access  Private
 
+/*
 const getDesign = asyncHandler(async (req, res) => {
   try {
     const design = await NetworkDesign.findOne({
       _id: req.params.id,
       userId: req.user._id,
+    })
+      .populate("devices")
+      .lean();
+
+    if (!design) {
+      return res.status(404).json({
+        success: false,
+        error: "Design not found or you don't have permission to access it",
+      });
+    }
+
+    // Manually add deviceCount since we're using lean
+    design.deviceCount = design.devices ? design.devices.length : 0;
+
+    res.json({
+      success: true,
+      data: design,
+    });
+  } catch (error) {
+    console.error("Error fetching design:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch design",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+*/
+
+// @desc    Get single design
+// @route   GET /api/designs/:id
+// @access  Private
+const getDesign = asyncHandler(async (req, res) => {
+  try {
+    // Get user's team IDs first
+    const userTeamIds = await getUsersTeamIds(req.user.uid);
+
+    const design = await NetworkDesign.findOne({
+      _id: req.params.id,
+      $or: [
+        { userId: req.user._id }, // User's own designs
+        { teamId: { $in: userTeamIds } }, // Team designs user has access to
+      ],
     })
       .populate("devices")
       .lean();
