@@ -240,6 +240,7 @@ const handleDesignLock = async (io) => {
 // @route   PUT /api/designs/:id
 // @access  Private
 
+/*
 const updateDesign = asyncHandler(async (req, res) => {
   const { error } = validateDesignInput(req.body, true);
   if (error) {
@@ -274,6 +275,64 @@ const updateDesign = asyncHandler(async (req, res) => {
   }
 
   // For non-team designs (original flow)
+  const { designName, description, isExistingNetwork, requirements } = req.body;
+
+  const updatedDesign = await NetworkDesign.findByIdAndUpdate(
+    req.params.id,
+    {
+      designName,
+      description,
+      isExistingNetwork,
+      requirements,
+      $inc: { version: 1 },
+      lastModified: new Date(),
+    },
+    { new: true, runValidators: true }
+  );
+
+  res.json({
+    success: true,
+    message: "Design updated successfully",
+    data: {
+      design: updatedDesign,
+      changes: updatedDesign.modifiedPaths(),
+      lastModified: updatedDesign.lastModified,
+    },
+  });
+});
+*/
+
+// @desc    Update a network design
+// @route   PUT /api/designs/:id
+// @access  Private
+const updateDesign = asyncHandler(async (req, res) => {
+  const { error } = validateDesignInput(req.body, true);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: error.details[0].message,
+    });
+  }
+
+  // Get user's team IDs first
+  const userTeamIds = await getUsersTeamIds(req.user.uid);
+
+  const design = await NetworkDesign.findOne({
+    _id: req.params.id,
+    $or: [
+      { userId: req.user._id }, // User's own designs
+      { teamId: { $in: userTeamIds } }, // Team designs user has access to
+    ],
+  });
+
+  if (!design) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or no permission",
+    });
+  }
+
+  // For both personal and team designs, allow updates via REST API
   const { designName, description, isExistingNetwork, requirements } = req.body;
 
   const updatedDesign = await NetworkDesign.findByIdAndUpdate(
@@ -435,9 +494,15 @@ const assignDesignToTeam = asyncHandler(async (req, res) => {
 // @route   POST /api/designs/:id/report
 // @access  Private
 const generateReport = asyncHandler(async (req, res) => {
+  // Get user's team IDs first
+  const userTeamIds = await getUsersTeamIds(req.user.uid);
+
   const design = await NetworkDesign.findOne({
     _id: req.params.id,
-    userId: req.user._id,
+    $or: [
+      { userId: req.user._id }, // User's own designs
+      { teamId: { $in: userTeamIds } }, // Team designs user has access to
+    ],
   }).populate("devices");
 
   if (!design) {
@@ -742,6 +807,7 @@ const getDesign = asyncHandler(async (req, res) => {
 // @desc    Archive a design
 // @route   PUT /api/designs/:id/archive
 // @access  Private
+/*
 const archiveDesign = asyncHandler(async (req, res) => {
   const design = await NetworkDesign.findOneAndUpdate(
     {
@@ -770,6 +836,49 @@ const archiveDesign = asyncHandler(async (req, res) => {
   });
 
   console.log();
+  res.json({
+    success: true,
+    message: "Design archived successfully",
+    data: {
+      designId: design._id,
+      designName: design.designName,
+      status: design.designStatus,
+    },
+  });
+});
+*/
+
+const archiveDesign = asyncHandler(async (req, res) => {
+  // Get user's team IDs first
+  const userTeamIds = await getUsersTeamIds(req.user.uid);
+
+  const design = await NetworkDesign.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      $or: [
+        { userId: req.user._id }, // User's own designs
+        { teamId: { $in: userTeamIds } }, // Team designs user has access to
+      ],
+      designStatus: { $ne: "archived" },
+    },
+    { designStatus: "archived" },
+    { new: true }
+  );
+
+  if (!design) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found, already archived, or you don't have permission",
+    });
+  }
+
+  // Decrement user's active design count only if they own it
+  if (design.userId.toString() === req.user._id.toString()) {
+    await User.findByIdAndUpdate(req.user._id, {
+      $inc: { "subscription.designCount": -1 },
+    });
+  }
+
   res.json({
     success: true,
     message: "Design archived successfully",
@@ -843,9 +952,9 @@ function estimateCost(design) {
 }
 
 // Helper function to get user's team IDs
-async function getUsersTeamIds(userId) {
+async function getUsersTeamIds(userUid) {
   const teams = await Team.find({
-    "members.userId": userId,
+    "members.userId": userUid,
   }).select("_id");
 
   return teams.map((team) => team._id);
