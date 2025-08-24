@@ -64,7 +64,6 @@ export const TeamDesignsTable: React.FC = () => {
     }
   }, [teams]);
 
-  /*
   useEffect(() => {
     if (teams.length > 0) {
       // Extract team designs from all teams where user is owner
@@ -88,9 +87,9 @@ export const TeamDesignsTable: React.FC = () => {
       setTeamDesigns(designs);
     }
   }, [teams]);
-  */
 
   // In TeamDesignsTable.tsx, replace the useEffect with:
+  /*
   useEffect(() => {
     const loadTeamDesigns = async () => {
       const designs: TeamDesign[] = [];
@@ -128,6 +127,7 @@ export const TeamDesignsTable: React.FC = () => {
       loadTeamDesigns();
     }
   }, [teams]);
+  */
 
   const handleRemoveDesign = (design: TeamDesign) => {
     setSelectedDesign(design);
