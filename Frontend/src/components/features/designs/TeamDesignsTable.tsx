@@ -56,6 +56,14 @@ export const TeamDesignsTable: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
+    console.log("Teams from Redux:", teams);
+    if (teams.length > 0 && teams[0].designs && teams[0].designs.length > 0) {
+      console.log("First design object:", teams[0].designs[0]);
+      console.log("Available design fields:", Object.keys(teams[0].designs[0]));
+    }
+  }, [teams]);
+
+  useEffect(() => {
     if (teams.length > 0) {
       // Extract team designs from all teams where user is owner
       const designs: TeamDesign[] = [];

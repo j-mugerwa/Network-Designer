@@ -59,7 +59,7 @@ export interface Team {
 
 export interface TeamDesign {
   _id: string;
-  //id?: string;
+  id: string;
   designName: string;
   description?: string;
   designStatus: string;
