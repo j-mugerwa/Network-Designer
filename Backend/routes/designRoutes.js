@@ -11,6 +11,7 @@ const {
   getUserDesigns,
   getTeamDesigns,
   assignDesignToTeam,
+  removeDesignFromTeam,
   getDesign,
   archiveDesign,
 } = require("../controllers/networkDesignController");
@@ -24,6 +25,7 @@ router.get("/", getUserDesigns);
 router.get("/:id", getDesign);
 router.get("/:teamId", getTeamDesigns);
 router.put("/:id/assign-to-team", assignDesignToTeam);
+router.put("/:id/remove-from-team", removeDesignFromTeam);
 router.put("/:id", updateDesign);
 router.post("/:id/report", generateReport);
 router.put("/:id/archive", archiveDesign);

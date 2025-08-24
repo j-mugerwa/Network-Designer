@@ -60,6 +60,15 @@ const createDesign = asyncHandler(async (req, res) => {
       version: 1,
     });
 
+    if (teamId) {
+      // Also add the design to the team's designs array
+      const team = await Team.findById(teamId);
+      if (team && !team.designs.includes(design._id)) {
+        team.designs.push(design._id);
+        await team.save();
+      }
+    }
+
     // Update user's design count and last activity
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
@@ -376,6 +385,7 @@ const getTeamDesigns = asyncHandler(async (req, res) => {
 // @desc    Assign design to team
 // @route   PUT /api/designs/:id/assign-to-team
 // @access  Private (Design owner or team admin)
+/*
 const assignDesignToTeam = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { teamId } = req.body;
@@ -420,6 +430,101 @@ const assignDesignToTeam = asyncHandler(async (req, res) => {
       designId: design._id,
       teamId: design.teamId,
       teamName: team.name,
+    },
+  });
+});
+*/
+
+const assignDesignToTeam = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { teamId } = req.body;
+
+  // Verify design exists and user owns it
+  const design = await NetworkDesign.findOne({
+    _id: id,
+    userId: req.user._id,
+  });
+
+  if (!design) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or you don't have permission",
+    });
+  }
+
+  // Verify team membership
+  const team = await Team.findOne({
+    _id: teamId,
+    "members.userId": req.user.uid,
+  });
+
+  if (!team) {
+    return res.status(403).json({
+      success: false,
+      error: "You are not a member of this team",
+    });
+  }
+
+  // Update design with team association
+  design.teamId = teamId;
+  design.lastModified = new Date();
+  design.version += 1;
+
+  await design.save();
+
+  // Update team's designs array
+  if (!team.designs.includes(design._id)) {
+    team.designs.push(design._id);
+    await team.save();
+  }
+
+  res.json({
+    success: true,
+    message: "Design assigned to team successfully",
+    data: {
+      designId: design._id,
+      teamId: design.teamId,
+      teamName: team.name,
+    },
+  });
+});
+
+// Remove design from team
+const removeDesignFromTeam = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const design = await NetworkDesign.findOne({
+    _id: id,
+    userId: req.user._id, // Only owner can remove from team
+  });
+
+  if (!design || !design.teamId) {
+    return res.status(404).json({
+      success: false,
+      error: "Design not found or not assigned to a team",
+    });
+  }
+
+  // Remove from team's designs array
+  const team = await Team.findById(design.teamId);
+  if (team) {
+    team.designs = team.designs.filter(
+      (designId) => designId.toString() !== design._id.toString()
+    );
+    await team.save();
+  }
+
+  // Remove team association from design
+  design.teamId = null;
+  design.lastModified = new Date();
+  design.version += 1;
+  await design.save();
+
+  res.json({
+    success: true,
+    message: "Design removed from team successfully",
+    data: {
+      designId: design._id,
     },
   });
 });
@@ -824,6 +929,7 @@ module.exports = {
   getDesign,
   getTeamDesigns,
   assignDesignToTeam,
+  removeDesignFromTeam,
   archiveDesign,
   //Socket-Related
   handleDesignUpdate,
