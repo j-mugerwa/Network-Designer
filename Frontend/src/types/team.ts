@@ -44,7 +44,8 @@ export interface Team {
   createdBy: string;
   members: TeamMember[];
   invitations: TeamInvitation[];
-  designs: string[];
+  //designs: string[];
+  designs: TeamDesign[];
   avatar?: string;
   isActive: boolean;
   createdAt: string;
@@ -57,7 +58,8 @@ export interface Team {
 }
 
 export interface TeamDesign {
-  id: string;
+  _id: string;
+  //id?: string;
   designName: string;
   description?: string;
   designStatus: string;
@@ -65,7 +67,7 @@ export interface TeamDesign {
   createdAt: string;
   updatedAt: string;
   lastModified?: string;
-  permissions: {
+  permissions?: {
     canEdit: boolean;
     canDelete: boolean;
   };

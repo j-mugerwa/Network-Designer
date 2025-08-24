@@ -82,7 +82,7 @@ const getTeam = asyncHandler(async (req, res, next) => {
   const team = await Team.findOne({
     _id: id,
     $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
-  });
+  }).populate("designs", "designName designStatus createdAt");
 
   if (!team) {
     return next(AppError.notFound("Team not found or access denied"));

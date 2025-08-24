@@ -37,7 +37,6 @@ const initialState: DesignState = {
 };
 
 // Utility function to convert NetworkDesign to NetworkDesignUI
-
 const convertToUI = (design: NetworkDesign): NetworkDesignUI => {
   // Parse dates if they're strings
   const parseDate = (dateString: string | Date) => {
@@ -188,6 +187,24 @@ export const assignDesignToTeam = createAsyncThunk<
   }
 });
 
+// Thunk for removing design from team
+export const removeDesignFromTeam = createAsyncThunk<
+  NetworkDesignUI,
+  string, // designId only since teamId comes from the design itself
+  { rejectValue: string }
+>("designs/removeFromTeam", async (designId, { rejectWithValue }) => {
+  try {
+    const response = await axios.put<{ data: NetworkDesign }>(
+      `/networkdesign/${designId}/remove-from-team`
+    );
+    return convertToUI(response.data.data);
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to remove design from team"
+    );
+  }
+});
+
 export const fetchDesignById = createAsyncThunk<
   NetworkDesignUI,
   string,
@@ -287,6 +304,7 @@ const designSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Failed to fetch designs";
       })
+
       //Fetch team designs
       .addCase(fetchTeamDesigns.pending, (state) => {
         state.loading = true;
@@ -301,6 +319,7 @@ const designSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Failed to fetch team designs";
       })
+
       //Assign a design to a team:
       .addCase(assignDesignToTeam.fulfilled, (state, action) => {
         if (action.payload) {
@@ -316,6 +335,23 @@ const designSlice = createSlice({
       .addCase(assignDesignToTeam.rejected, (state, action) => {
         state.error = action.payload || "Failed to assign design to team";
       })
+
+      // Remove design from team
+      .addCase(removeDesignFromTeam.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Update the design in the list
+          state.designs = state.designs.map((design) =>
+            design.id === action.payload.id ? action.payload : design
+          );
+          if (state.currentDesign?.id === action.payload.id) {
+            state.currentDesign = action.payload;
+          }
+        }
+      })
+      .addCase(removeDesignFromTeam.rejected, (state, action) => {
+        state.error = action.payload || "Failed to remove design from team";
+      })
+
       // Fetch single design
       .addCase(fetchDesignById.pending, (state) => {
         state.loading = true;

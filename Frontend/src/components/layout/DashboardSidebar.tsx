@@ -109,6 +109,7 @@ const DashboardSidebar = () => {
       subItems: [
         { name: "Show Teams", path: "/team" },
         { name: "Show Invitations", path: "/team/invitations" },
+        { name: "Show Team Designs", path: "/team/designs" },
         { name: "Create Team", path: "/team/create" },
         { name: "Invite Individual", path: "/team/invite" },
         { name: "Show Individuals", path: "/team/members" },
