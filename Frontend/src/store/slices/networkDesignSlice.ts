@@ -129,6 +129,7 @@ export const fetchUserDesigns = createAsyncThunk<
   }
 );
 
+/*
 export const fetchTeamDesigns = createAsyncThunk<
   { designs: NetworkDesignUI[]; pagination: any },
   {
@@ -168,6 +169,47 @@ export const fetchTeamDesigns = createAsyncThunk<
     }
   }
 );
+*/
+
+export const fetchTeamDesigns = createAsyncThunk<
+  { designs: NetworkDesignUI[]; pagination: any },
+  {
+    teamId: string;
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  },
+  { rejectValue: string }
+>(
+  "designs/fetchTeamDesigns",
+  async (
+    { teamId, page = 1, limit = 10, status, search },
+    { rejectWithValue }
+  ) => {
+    try {
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+      if (status) params.append("status", status);
+      if (search) params.append("search", search);
+
+      const response = await axios.get<{
+        data: any[];
+        pagination: any;
+      }>(`/networkdesign/team/${teamId}?${params.toString()}`);
+
+      return {
+        designs: response.data.data.map(convertToUI),
+        pagination: response.data.pagination,
+      };
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to fetch team designs"
+      );
+    }
+  }
+);
 
 export const assignDesignToTeam = createAsyncThunk<
   NetworkDesignUI,
@@ -188,6 +230,7 @@ export const assignDesignToTeam = createAsyncThunk<
 });
 
 // Thunk for removing design from team
+/*
 export const removeDesignFromTeam = createAsyncThunk<
   NetworkDesignUI,
   string, // designId only since teamId comes from the design itself
@@ -198,6 +241,29 @@ export const removeDesignFromTeam = createAsyncThunk<
       `/networkdesign/${designId}/remove-from-team`
     );
     return convertToUI(response.data.data);
+  } catch (error: any) {
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to remove design from team"
+    );
+  }
+});
+*/
+
+// Thunk for removing design from team
+export const removeDesignFromTeam = createAsyncThunk<
+  string, // Return the designId instead of full design
+  string, // designId only since teamId comes from the design itself
+  { rejectValue: string }
+>("designs/removeFromTeam", async (designId, { rejectWithValue }) => {
+  try {
+    const response = await axios.put<{
+      success: boolean;
+      message: string;
+      data: { designId: string };
+    }>(`/networkdesign/${designId}/remove-from-team`);
+
+    // Just return the designId since we don't get the full design back
+    return designId;
   } catch (error: any) {
     return rejectWithValue(
       error.response?.data?.error || "Failed to remove design from team"
@@ -338,20 +404,17 @@ const designSlice = createSlice({
 
       // Remove design from team
       .addCase(removeDesignFromTeam.fulfilled, (state, action) => {
-        if (action.payload) {
-          // Update the design in the list
-          state.designs = state.designs.map((design) =>
-            design.id === action.payload.id ? action.payload : design
-          );
-          if (state.currentDesign?.id === action.payload.id) {
-            state.currentDesign = action.payload;
-          }
+        // Remove the design from the list by ID
+        state.designs = state.designs.filter(
+          (design) => design.id !== action.payload
+        );
+        if (state.currentDesign?.id === action.payload) {
+          state.currentDesign = null;
         }
       })
       .addCase(removeDesignFromTeam.rejected, (state, action) => {
         state.error = action.payload || "Failed to remove design from team";
       })
-
       // Fetch single design
       .addCase(fetchDesignById.pending, (state) => {
         state.loading = true;
