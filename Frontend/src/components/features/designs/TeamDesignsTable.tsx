@@ -58,11 +58,13 @@ export const TeamDesignsTable: React.FC = () => {
 
   useEffect(() => {
     console.log("Teams from Redux:", teams);
+    console.log("Current user:", currentUser);
+
     if (teams.length > 0 && teams[0].designs && teams[0].designs.length > 0) {
       console.log("First design object:", teams[0].designs[0]);
       console.log("Available design fields:", Object.keys(teams[0].designs[0]));
     }
-  }, [teams]);
+  }, [teams, currentUser]);
 
   useEffect(() => {
     if (teams.length > 0 && currentUser) {
@@ -70,13 +72,17 @@ export const TeamDesignsTable: React.FC = () => {
       const designs: TeamDesign[] = [];
 
       teams.forEach((team) => {
-        // Check if user is the owner of this team
+        // Check if user is the owner of this team - compare with both possible UID formats
         const isOwner = team.createdBy === currentUser.uid;
+        console.log(
+          `Team ${team.name} - isOwner: ${isOwner}, createdBy: ${team.createdBy}, currentUser.uid: ${currentUser.uid}`
+        );
 
         if (isOwner && team.designs && team.designs.length > 0) {
+          console.log(`Team ${team.name} has ${team.designs.length} designs`);
+
           team.designs.forEach((design) => {
-            // Debug: log the design object to see its structure
-            console.log("Design object structure:", design);
+            console.log("Design object:", design);
 
             designs.push({
               teamId: team._id || team.id || "unknown-team",
@@ -90,7 +96,11 @@ export const TeamDesignsTable: React.FC = () => {
         }
       });
 
+      console.log("Extracted designs:", designs);
       setTeamDesigns(designs);
+    } else if (teams.length > 0) {
+      console.log("No current user or teams without designs");
+      setTeamDesigns([]);
     }
   }, [teams, currentUser]);
 
