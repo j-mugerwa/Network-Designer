@@ -45,7 +45,6 @@ export interface Team {
   createdBy: string;
   members: TeamMember[];
   invitations: TeamInvitation[];
-  //designs: string[];
   designs: TeamDesign[];
   avatar?: string;
   isActive: boolean;
