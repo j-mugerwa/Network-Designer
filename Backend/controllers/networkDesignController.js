@@ -302,7 +302,6 @@ const updateDesign = asyncHandler(async (req, res) => {
   });
 });
 
-// New function to get designs for a team
 // @desc    Get designs for a team
 // @route   GET /api/designs/team/:teamId
 // @access  Private (Team members only)
@@ -381,60 +380,9 @@ const getTeamDesigns = asyncHandler(async (req, res) => {
   }
 });
 
-// Assign a design to a team
 // @desc    Assign design to team
 // @route   PUT /api/designs/:id/assign-to-team
 // @access  Private (Design owner or team admin)
-/*
-const assignDesignToTeam = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { teamId } = req.body;
-
-  // Verify design exists and user owns it
-  const design = await NetworkDesign.findOne({
-    _id: id,
-    userId: req.user._id,
-  });
-
-  if (!design) {
-    return res.status(404).json({
-      success: false,
-      error: "Design not found or you don't have permission",
-    });
-  }
-
-  // Verify team membership
-  const team = await Team.findOne({
-    _id: teamId,
-    "members.userId": req.user.uid,
-  });
-
-  if (!team) {
-    return res.status(403).json({
-      success: false,
-      error: "You are not a member of this team",
-    });
-  }
-
-  // Update design with team association
-  design.teamId = teamId;
-  design.lastModified = new Date();
-  design.version += 1;
-
-  await design.save();
-
-  res.json({
-    success: true,
-    message: "Design assigned to team successfully",
-    data: {
-      designId: design._id,
-      teamId: design.teamId,
-      teamName: team.name,
-    },
-  });
-});
-*/
-
 const assignDesignToTeam = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { teamId } = req.body;
@@ -685,46 +633,6 @@ const getUserDesigns = asyncHandler(async (req, res) => {
 // @desc    Get single design
 // @route   GET /api/designs/:id
 // @access  Private
-
-/*
-const getDesign = asyncHandler(async (req, res) => {
-  try {
-    const design = await NetworkDesign.findOne({
-      _id: req.params.id,
-      userId: req.user._id,
-    })
-      .populate("devices")
-      .lean();
-
-    if (!design) {
-      return res.status(404).json({
-        success: false,
-        error: "Design not found or you don't have permission to access it",
-      });
-    }
-
-    // Manually add deviceCount since we're using lean
-    design.deviceCount = design.devices ? design.devices.length : 0;
-
-    res.json({
-      success: true,
-      data: design,
-    });
-  } catch (error) {
-    console.error("Error fetching design:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch design",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-*/
-
-// @desc    Get single design
-// @route   GET /api/designs/:id
-// @access  Private
 const getDesign = asyncHandler(async (req, res) => {
   try {
     // Get user's team IDs first
@@ -768,47 +676,6 @@ const getDesign = asyncHandler(async (req, res) => {
 // @desc    Archive a design
 // @route   PUT /api/designs/:id/archive
 // @access  Private
-/*
-const archiveDesign = asyncHandler(async (req, res) => {
-  const design = await NetworkDesign.findOneAndUpdate(
-    {
-      _id: req.params.id,
-      userId: req.user._id,
-      designStatus: { $ne: "archived" },
-    },
-    { designStatus: "archived" },
-    { new: true }
-  );
-  //If the design is found
-  if (design) {
-    console.log(design.designName, " Was found and Archived Successfully");
-  }
-  //If there is no design.
-  if (!design) {
-    return res.status(404).json({
-      success: false,
-      error: "Design not found, already archived, or you don't have permission",
-    });
-  }
-
-  // Decrement user's active design count
-  await User.findByIdAndUpdate(req.user._id, {
-    $inc: { "subscription.designCount": -1 },
-  });
-
-  console.log();
-  res.json({
-    success: true,
-    message: "Design archived successfully",
-    data: {
-      designId: design._id,
-      designName: design.designName,
-      status: design.designStatus,
-    },
-  });
-});
-*/
-
 const archiveDesign = asyncHandler(async (req, res) => {
   // Get user's team IDs first
   const userTeamIds = await getUsersTeamIds(req.user.uid);

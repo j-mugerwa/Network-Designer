@@ -129,48 +129,7 @@ export const fetchUserDesigns = createAsyncThunk<
   }
 );
 
-/*
-export const fetchTeamDesigns = createAsyncThunk<
-  { designs: NetworkDesignUI[]; pagination: any },
-  {
-    teamId: string;
-    page?: number;
-    limit?: number;
-    status?: string;
-    search?: string;
-  },
-  { rejectValue: string }
->(
-  "designs/fetchTeamDesigns",
-  async (
-    { teamId, page = 1, limit = 10, status, search },
-    { rejectWithValue }
-  ) => {
-    try {
-      const params = new URLSearchParams();
-      params.append("page", page.toString());
-      params.append("limit", limit.toString());
-      if (status) params.append("status", status);
-      if (search) params.append("search", search);
-
-      const response = await axios.get<{
-        data: any[];
-        pagination: any;
-      }>(`/networkdesign/${teamId}?${params.toString()}`);
-
-      return {
-        designs: response.data.data.map(convertToUI),
-        pagination: response.data.pagination,
-      };
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.error || "Failed to fetch team designs"
-      );
-    }
-  }
-);
-*/
-
+//Fetch designs associated to a team
 export const fetchTeamDesigns = createAsyncThunk<
   { designs: NetworkDesignUI[]; pagination: any },
   {
@@ -230,26 +189,6 @@ export const assignDesignToTeam = createAsyncThunk<
 });
 
 // Thunk for removing design from team
-/*
-export const removeDesignFromTeam = createAsyncThunk<
-  NetworkDesignUI,
-  string, // designId only since teamId comes from the design itself
-  { rejectValue: string }
->("designs/removeFromTeam", async (designId, { rejectWithValue }) => {
-  try {
-    const response = await axios.put<{ data: NetworkDesign }>(
-      `/networkdesign/${designId}/remove-from-team`
-    );
-    return convertToUI(response.data.data);
-  } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.error || "Failed to remove design from team"
-    );
-  }
-});
-*/
-
-// Thunk for removing design from team
 export const removeDesignFromTeam = createAsyncThunk<
   string, // Return the designId instead of full design
   string, // designId only since teamId comes from the design itself
@@ -288,7 +227,7 @@ export const fetchDesignById = createAsyncThunk<
   }
 });
 
-//Update Thunk
+//Updated Thunk
 export const updateDesign = createAsyncThunk<
   NetworkDesignUI,
   { id: string; designData: UpdateDesignPayload },
