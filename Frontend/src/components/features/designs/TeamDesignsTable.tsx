@@ -64,6 +64,7 @@ export const TeamDesignsTable: React.FC = () => {
     }
   }, [teams]);
 
+  /*
   useEffect(() => {
     if (teams.length > 0) {
       // Extract team designs from all teams where user is owner
@@ -87,47 +88,34 @@ export const TeamDesignsTable: React.FC = () => {
       setTeamDesigns(designs);
     }
   }, [teams]);
+  */
 
-  // In TeamDesignsTable.tsx, replace the useEffect with:
-  /*
   useEffect(() => {
-    const loadTeamDesigns = async () => {
+    if (teams.length > 0) {
+      // Extract team designs from all teams where user is owner
       const designs: TeamDesign[] = [];
 
-      for (const team of teams) {
-        if (team._id) {
-          try {
-            // Fetch designs for each team
-            const response = await axios.get(`/team/${team._id}/designs`);
-            const teamDesigns = response.data.data.designs;
+      teams.forEach((team) => {
+        if (team.designs && team.designs.length > 0) {
+          team.designs.forEach((design) => {
+            // Debug: log the design object to see its structure
+            console.log("Design object:", design);
 
-            teamDesigns.forEach((design: any) => {
-              designs.push({
-                teamId: team._id || "unknown-team",
-                teamName: team.name,
-                designId: design._id || design.id,
-                designName: design.designName || "Unknown Design",
-                designStatus: design.designStatus || "unknown",
-                createdAt: design.createdAt || new Date().toISOString(),
-              });
+            designs.push({
+              teamId: team._id || "unknown-team",
+              teamName: team.name,
+              designId: design._id || design.toString(),
+              designName: design.designName || "Unknown Design",
+              designStatus: design.designStatus || "unknown",
+              createdAt: design.createdAt || new Date().toISOString(),
             });
-          } catch (error) {
-            console.error(
-              `Failed to fetch designs for team ${team._id}:`,
-              error
-            );
-          }
+          });
         }
-      }
+      });
 
       setTeamDesigns(designs);
-    };
-
-    if (teams.length > 0) {
-      loadTeamDesigns();
     }
   }, [teams]);
-  */
 
   const handleRemoveDesign = (design: TeamDesign) => {
     setSelectedDesign(design);
