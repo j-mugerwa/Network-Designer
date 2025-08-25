@@ -1,6 +1,7 @@
 // src/types/team.ts
 
 export interface User {
+  uid?: string;
   id?: string;
   _id?: string;
   name: string;

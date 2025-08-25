@@ -1,4 +1,3 @@
-// src/components/features/teams/TeamDesignsTable.tsx
 import React, { useState, useEffect } from "react";
 import {
   Table,
@@ -22,10 +21,10 @@ import {
 } from "@mui/material";
 import { Delete, Visibility } from "@mui/icons-material";
 import { useAppDispatch, useAppSelector } from "@/store/store";
-import { fetchUserTeams } from "@/store/slices/teamSlice";
+import { fetchUserTeamsWithDesigns } from "@/store/slices/teamSlice";
 import { removeDesignFromTeam } from "@/store/slices/networkDesignSlice";
 import { useRouter } from "next/router";
-import axios from "@/lib/api/client";
+import { selectCurrentUser } from "@/store/slices/userSlice";
 
 interface TeamDesign {
   teamId: string;
@@ -39,6 +38,7 @@ interface TeamDesign {
 export const TeamDesignsTable: React.FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const currentUser = useAppSelector(selectCurrentUser);
   const {
     teams,
     loading: teamsLoading,
@@ -53,7 +53,7 @@ export const TeamDesignsTable: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchUserTeams());
+    dispatch(fetchUserTeamsWithDesigns());
   }, [dispatch]);
 
   useEffect(() => {
@@ -64,47 +64,24 @@ export const TeamDesignsTable: React.FC = () => {
     }
   }, [teams]);
 
-  /*
   useEffect(() => {
-    if (teams.length > 0) {
+    if (teams.length > 0 && currentUser) {
       // Extract team designs from all teams where user is owner
       const designs: TeamDesign[] = [];
 
       teams.forEach((team) => {
-        if (team.designs && team.designs.length > 0) {
-          team.designs.forEach((design) => {
-            designs.push({
-              teamId: team._id || "unknown-team",
-              teamName: team.name,
-              designId: design._id || design.toString(),
-              designName: design.designName || "Unknown Design",
-              designStatus: design.designStatus || "unknown",
-              createdAt: design.createdAt || new Date().toISOString(),
-            });
-          });
-        }
-      });
+        // Check if user is the owner of this team
+        const isOwner = team.createdBy === currentUser.uid;
 
-      setTeamDesigns(designs);
-    }
-  }, [teams]);
-  */
-
-  useEffect(() => {
-    if (teams.length > 0) {
-      // Extract team designs from all teams where user is owner
-      const designs: TeamDesign[] = [];
-
-      teams.forEach((team) => {
-        if (team.designs && team.designs.length > 0) {
+        if (isOwner && team.designs && team.designs.length > 0) {
           team.designs.forEach((design) => {
             // Debug: log the design object to see its structure
-            console.log("Design object:", design);
+            console.log("Design object structure:", design);
 
             designs.push({
-              teamId: team._id || "unknown-team",
+              teamId: team._id || team.id || "unknown-team",
               teamName: team.name,
-              designId: design._id || design.toString(),
+              designId: design._id || design.id || "unknown-design",
               designName: design.designName || "Unknown Design",
               designStatus: design.designStatus || "unknown",
               createdAt: design.createdAt || new Date().toISOString(),
@@ -115,7 +92,7 @@ export const TeamDesignsTable: React.FC = () => {
 
       setTeamDesigns(designs);
     }
-  }, [teams]);
+  }, [teams, currentUser]);
 
   const handleRemoveDesign = (design: TeamDesign) => {
     setSelectedDesign(design);
@@ -130,7 +107,7 @@ export const TeamDesignsTable: React.FC = () => {
       setDialogOpen(false);
       setSelectedDesign(null);
       // Refresh the data
-      dispatch(fetchUserTeams());
+      dispatch(fetchUserTeamsWithDesigns());
     } catch (error) {
       console.error("Failed to remove design from team:", error);
     }

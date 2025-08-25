@@ -7,6 +7,7 @@ const {
   createTeam,
   getUserTeams,
   getTeam,
+  getUserTeamsWithDesigns,
   updateTeam,
   deleteTeam,
   addTeamMember,
@@ -30,6 +31,7 @@ router.use(verifyFirebaseToken);
 
 router.post("/", createTeam);
 router.get("/", getUserTeams);
+router.get("/team-designs", getUserTeamsWithDesigns);
 router.get("/members", getMembersFromOwnedTeams);
 router.get("/:id", getTeam);
 router.put("/:id", updateTeam);

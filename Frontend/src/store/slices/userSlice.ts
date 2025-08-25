@@ -10,6 +10,7 @@ interface SubscriptionPlan {
 }
 
 interface UserProfile {
+  uid: string;
   id: string;
   name: string;
   email: string;

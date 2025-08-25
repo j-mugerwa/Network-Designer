@@ -179,6 +179,28 @@ const getTeam = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get all teams for user with populated designs
+// @route   GET /api/teams/with-designs
+// @access  Private
+const getUserTeamsWithDesigns = asyncHandler(async (req, res, next) => {
+  const teams = await Team.find({
+    $or: [{ createdBy: req.user.uid }, { "members.userId": req.user.uid }],
+  })
+    .populate("designs") // Populate the designs
+    .populate({
+      path: "owner",
+      match: { firebaseUID: req.user.uid },
+      select: "name email avatar",
+    })
+    .lean();
+
+  res.status(200).json({
+    status: "success",
+    results: teams.length,
+    data: teams,
+  });
+});
+
 // @desc    Get all members from teams owned by current user
 // @route   GET /api/teams/members/owned
 // @access  Private (Team owners only)
@@ -791,6 +813,7 @@ module.exports = {
   createTeam,
   getUserTeams,
   getTeam,
+  getUserTeamsWithDesigns,
   getMembersFromOwnedTeams,
   updateTeam,
   deleteTeam,

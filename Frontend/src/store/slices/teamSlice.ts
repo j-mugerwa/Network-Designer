@@ -99,6 +99,29 @@ export const fetchUserTeams = createAsyncThunk<
   }
 });
 
+// Fetch User teams with populated designs
+export const fetchUserTeamsWithDesigns = createAsyncThunk<
+  Team[],
+  void,
+  { rejectValue: string }
+>("team/fetchAllWithDesigns", async (_, { rejectWithValue }) => {
+  try {
+    console.log("Fetching teams with designs...");
+    const response = await axios.get("/team/team-designs");
+    console.log("Teams with designs response:", response.data);
+    return response.data.data;
+  } catch (error: any) {
+    console.error("Error fetching teams with designs:", {
+      message: error.message,
+      response: error.response?.data,
+      stack: error.stack,
+    });
+    return rejectWithValue(
+      error.response?.data?.error || "Failed to fetch teams with designs"
+    );
+  }
+});
+
 export const fetchTeamDetails = createAsyncThunk<
   Team,
   string,
@@ -385,6 +408,20 @@ const teamSlice = createSlice({
       .addCase(fetchUserTeams.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to fetch teams";
+      })
+
+      // Fetch User Teams with Designs
+      .addCase(fetchUserTeamsWithDesigns.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserTeamsWithDesigns.fulfilled, (state, action) => {
+        state.loading = false;
+        state.teams = action.payload;
+      })
+      .addCase(fetchUserTeamsWithDesigns.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch teams with designs";
       })
 
       // Fetch Team Details
