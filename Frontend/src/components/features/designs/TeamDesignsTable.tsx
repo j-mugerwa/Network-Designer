@@ -24,7 +24,7 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { fetchUserTeamsWithDesigns } from "@/store/slices/teamSlice";
 import { removeDesignFromTeam } from "@/store/slices/networkDesignSlice";
 import { useRouter } from "next/router";
-import { selectAuthUser } from "@/store/slices/authSlice"; // Import the correct selector
+import { selectAuthUser } from "@/store/slices/authSlice";
 
 interface TeamDesign {
   teamId: string;
@@ -38,7 +38,7 @@ interface TeamDesign {
 export const TeamDesignsTable: React.FC = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const authUser = useAppSelector(selectAuthUser); // Get auth user, not user slice user
+  const authUser = useAppSelector(selectAuthUser);
   const {
     teams,
     loading: teamsLoading,
@@ -57,37 +57,18 @@ export const TeamDesignsTable: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    console.log("Teams from Redux:", teams);
-    console.log("Auth user:", authUser);
-
-    if (teams.length > 0 && teams[0].designs && teams[0].designs.length > 0) {
-      console.log("First design object:", teams[0].designs[0]);
-    }
-  }, [teams, authUser]);
-
-  useEffect(() => {
-    if (teams.length > 0) {
+    if (teams.length > 0 && authUser) {
       // Get the current user's UID from auth user
-      const userUid = authUser?.uid;
-
-      console.log("User UID for owner check:", userUid);
-      console.log("First team createdBy:", teams[0]?.createdBy);
+      const userUid = authUser.uid;
 
       // Extract team designs from all teams where user is owner
       const designs: TeamDesign[] = [];
 
       teams.forEach((team) => {
         // Check if user is the owner of this team
-        // The team.createdBy should match the authUser.uid
-        const isOwner = userUid && team.createdBy === userUid;
-
-        console.log(
-          `Team ${team.name} - isOwner: ${isOwner}, createdBy: ${team.createdBy}, userUid: ${userUid}`
-        );
+        const isOwner = team.createdBy === userUid;
 
         if (isOwner && team.designs && team.designs.length > 0) {
-          console.log(`Team ${team.name} has ${team.designs.length} designs`);
-
           team.designs.forEach((design) => {
             designs.push({
               teamId: team._id || team.id || "unknown-team",
@@ -101,7 +82,6 @@ export const TeamDesignsTable: React.FC = () => {
         }
       });
 
-      console.log("Extracted designs:", designs);
       setTeamDesigns(designs);
     }
   }, [teams, authUser]);
@@ -249,25 +229,6 @@ export const TeamDesignsTable: React.FC = () => {
           {designError}
         </Alert>
       )}
-
-      {/* Debug info */}
-      <Box mt={2} p={2} border="1px dashed #ccc">
-        <Typography variant="h6">Debug Info:</Typography>
-        <Typography variant="body2">Teams count: {teams.length}</Typography>
-        <Typography variant="body2">
-          Auth user: {JSON.stringify(authUser)}
-        </Typography>
-        <Typography variant="body2">
-          User UID: {authUser?.uid || "None"}
-        </Typography>
-        <Typography variant="body2">
-          First team createdBy: {teams[0]?.createdBy}
-        </Typography>
-        <Typography variant="body2">
-          UID matches createdBy:{" "}
-          {authUser?.uid === teams[0]?.createdBy ? "Yes" : "No"}
-        </Typography>
-      </Box>
     </>
   );
 };
