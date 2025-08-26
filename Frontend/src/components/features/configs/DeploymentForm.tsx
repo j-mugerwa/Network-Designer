@@ -588,7 +588,8 @@ const DeploymentForm: React.FC<DeploymentFormProps> = ({
                               <Typography variant="body2" sx={{ mb: 1 }}>
                                 IP:{" "}
                                 {userDevices.find(
-                                  (d) => d.id === selectedDeviceId
+                                  (d: { id: string }) =>
+                                    d.id === selectedDeviceId
                                 )?.ipAddress || "Not specified"}
                               </Typography>
                             </Box>

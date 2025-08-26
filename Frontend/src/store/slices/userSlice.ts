@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import axios from "@/lib/api/client";
+import { RootState } from "../store";
 
 // Types
 interface SubscriptionPlan {
@@ -9,6 +10,7 @@ interface SubscriptionPlan {
 }
 
 interface UserProfile {
+  uid: string;
   id: string;
   name: string;
   email: string;
@@ -351,6 +353,16 @@ const userSlice = createSlice({
       });
   },
 });
+
+// Selectors
+export const selectCurrentUser = (state: RootState) => state.user.currentUser;
+export const selectUsersList = (state: RootState) => state.user.usersList;
+export const selectUserLoading = (state: RootState) => state.user.loading;
+export const selectUserError = (state: RootState) => state.user.error;
+export const selectPasswordResetState = (state: RootState) =>
+  state.user.passwordReset;
+export const selectSubscriptionState = (state: RootState) =>
+  state.user.subscription;
 
 export const {
   resetPasswordResetState,

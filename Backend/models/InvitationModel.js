@@ -3,41 +3,19 @@ const mongoose = require("mongoose");
 
 const invitationSchema = new mongoose.Schema(
   {
-    email: {
-      type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
-    },
-    invitedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    team: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Team",
-      required: true,
-    },
-    role: {
-      type: String,
-      enum: ["member", "admin", "viewer"],
-      default: "member",
-    },
-    token: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    token: { type: String, required: true, unique: true },
+    role: { type: String, enum: ["admin", "member"], default: "member" },
+    company: { type: String, required: true }, // Company name/id from inviter
+    inviterId: { type: String, ref: "User", required: true },
     status: {
       type: String,
-      enum: ["pending", "accepted", "declined", "expired"],
+      enum: ["pending", "accepted", "expired", "declined", "registered"],
       default: "pending",
     },
-    expiresAt: {
-      type: Date,
-      required: true,
-    },
+    team: { type: mongoose.Schema.Types.ObjectId, ref: "Team", required: true },
+    expiresAt: { type: Date, required: true },
+    registeredUserId: { type: String, ref: "User" }, // For tracking
   },
   { timestamps: true }
 );
@@ -47,6 +25,7 @@ invitationSchema.index({ email: 1, team: 1 }, { unique: true });
 //invitationSchema.index({ token: 1 }, { unique: true });
 invitationSchema.index({ status: 1 });
 invitationSchema.index({ invitedBy: 1 });
+invitationSchema.index({ team: 1 });
 
 const Invitation = mongoose.model("Invitation", invitationSchema);
 

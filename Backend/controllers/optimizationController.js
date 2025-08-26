@@ -31,10 +31,7 @@ const generateOptimizationReport = async (optimization, design) => {
 // @desc    Create a new optimization
 // @route   POST /api/optimizations
 // @access  Private
-// Helper function to generate optimization report
-// @desc    Create a new optimization
-// @route   POST /api/optimizations
-// @access  Private
+
 const createOptimization = asyncHandler(async (req, res, next) => {
   const { designId, optimizationType, parameters } = req.body;
   const userId = req.user.uid;
@@ -178,9 +175,6 @@ const updateOptimization = asyncHandler(async (req, res, next) => {
 // @route   GET /api/optimizations/:id/results
 // @access  Private
 
-// @desc    Get optimization results with report
-// @route   GET /api/optimizations/:id/results
-// @access  Private
 const getOptimizationResults = asyncHandler(async (req, res, next) => {
   const optimization = await DesignOptimization.findOne({
     _id: req.params.id,

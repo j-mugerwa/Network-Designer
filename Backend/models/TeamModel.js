@@ -1,9 +1,31 @@
 const mongoose = require("mongoose");
 const AppError = require("../utils/appError");
 
+const invitationSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true,
+  },
+  token: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    enum: ["admin", "member"],
+    default: "member",
+  },
+  expiresAt: {
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+  },
+});
+
 const teamMemberSchema = new mongoose.Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: "User",
     required: [true, "User reference is required"],
   },
@@ -32,7 +54,7 @@ const teamSchema = new mongoose.Schema(
       maxlength: [500, "Description cannot exceed 500 characters"],
     },
     createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: "User",
       required: [true, "Creator reference is required"],
     },
@@ -42,6 +64,17 @@ const teamSchema = new mongoose.Schema(
       default: true,
     },
     avatar: String,
+    designs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "NetworkDesign",
+      },
+    ],
+    invitations: [invitationSchema],
+    lastModified: {
+      by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      at: { type: Date, default: Date.now },
+    },
   },
   {
     timestamps: true,
@@ -54,23 +87,41 @@ const teamSchema = new mongoose.Schema(
 teamSchema.index({ name: 1 });
 teamSchema.index({ createdBy: 1 });
 teamSchema.index({ isActive: 1 });
+// For faster sorting
+teamSchema.index({ "lastModified.at": -1 });
+teamSchema.index({ "members.userId": 1, "members.role": 1 });
 
-// Ensure each user is only added once to a team
-teamSchema.index({ "members.userId": 1 }, { unique: true });
+// User takes a single role in a team
+teamSchema.index({ "members.role": 1 });
 
 // Virtual populate
 teamSchema.virtual("owner", {
   ref: "User",
-  localField: "createdBy",
-  foreignField: "_id",
+  localField: "createdBy", // Firebase UID
+  foreignField: "firebaseUID", // Match against firebaseUID in User model
   justOne: true,
 });
 
-// Pre-save hook to ensure creator is a member
-teamSchema.pre("save", function (next) {
-  const creatorIsMember = this.members.some(
-    (m) => m.userId.toString() === this.createdBy.toString()
+//Methods to handle designs
+teamSchema.methods.addDesign = async function (designId) {
+  if (!this.designs.includes(designId)) {
+    this.designs.push(designId);
+    await this.save();
+  }
+};
+
+teamSchema.methods.removeDesign = async function (designId) {
+  this.designs = this.designs.filter(
+    (id) => id.toString() !== designId.toString()
   );
+  await this.save();
+};
+
+// Pre-save hook to ensure creator is a member
+
+teamSchema.pre("save", function (next) {
+  // Only add creator as member if not already present
+  const creatorIsMember = this.members.some((m) => m.userId === this.createdBy);
 
   if (!creatorIsMember) {
     this.members.push({

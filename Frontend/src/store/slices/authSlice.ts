@@ -161,12 +161,6 @@ export const checkLoginStatus = createAsyncThunk<
       if (user) {
         try {
           const token = await user.getIdToken();
-          /*
-          const response = await axios.get("/users/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          */
-
           const userData: AuthUser = {
             //_id: response.data._id,
             uid: user.uid,
@@ -278,6 +272,13 @@ const authSlice = createSlice({
   },
 });
 
+// Selectors
+export const selectAuthUser = (state: RootState) => state.auth.user;
+export const selectIsAuthenticated = (state: RootState) =>
+  state.auth.isAuthenticated;
+export const selectAuthToken = (state: RootState) => state.auth.token;
+export const selectAuthLoading = (state: RootState) => state.auth.loading;
+export const selectAuthError = (state: RootState) => state.auth.error;
 //export const selectCurrentUserId = (state: RootState) => state.auth.user?._id;
 export const { resetAuthState, setUser } = authSlice.actions;
 export default authSlice.reducer;

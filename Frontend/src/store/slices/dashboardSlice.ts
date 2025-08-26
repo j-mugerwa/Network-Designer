@@ -46,7 +46,6 @@ const initialState: DashboardState = {
   error: null,
 };
 
-/*
 export const fetchDashboardData = createAsyncThunk(
   "dashboard/fetchDashboardData",
   async (_, { rejectWithValue }) => {
@@ -60,37 +59,6 @@ export const fetchDashboardData = createAsyncThunk(
     }
   }
 );
-*/
-
-export const fetchDashboardData = createAsyncThunk(
-  "dashboard/fetchDashboardData",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axios.get("/dashboard");
-      return response.data.data;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch dashboard data"
-      );
-    }
-  }
-);
-
-/*
-export const fetchActivityData = createAsyncThunk(
-  "dashboard/fetchActivityData",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axios.get("/dashboard/activity");
-      return response.data.data;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch activity data"
-      );
-    }
-  }
-);
-*/
 
 const dashboardSlice = createSlice({
   name: "dashboard",
@@ -115,22 +83,6 @@ const dashboardSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       });
-
-    // Fetch Activity Data
-    /*
-      .addCase(fetchActivityData.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchActivityData.fulfilled, (state, action) => {
-        state.loading = false;
-        state.activityData = action.payload;
-      })
-      .addCase(fetchActivityData.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      });
-      */
   },
 });
 
