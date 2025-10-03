@@ -1,4 +1,4 @@
-# 🌐 Network Designer Pro
+# Network Designer Pro
  A complete solution for your network design and planning needs.
 
  
@@ -7,7 +7,7 @@
 [![Live Demo](https://img.shields.io/badge/Demo-Live%20Application-green)](https://network-designer-frontend.onrender.com/)  
 [![Sponsor](https://img.shields.io/badge/Support-Project%20via%20GitHub%20Sponsors-blue)](https://github.com/sponsors/j-mugerwa)
 
-## 🚀 Key Features
+## Key Features
 
 | Feature | Status | Description |
 |---------|--------|-------------|
@@ -16,13 +16,13 @@
 | **Visual Topology Builder** | ✅ Deployed | Drag-and-drop network visualization |
 | **Equipment Catalog** | ✅ Deployed | Custom device templates & auto-proposals |
 | **Configuration Generator** | ✅ Deployed | Templated device configs with variables |
-| **Team Collaboration** | 🚧 In Progress | Real-time design collaboration |
+| **Team Collaboration** | ✅ Deployed | Real-time design collaboration |
 | **Role-based Access** | 🚧 In Progress | Granular permission control |
 | **Notifications** | 🚧 In Progress | Send and receive progress Notifications to team members |
 | **Versioning** | 🚧 In Progress | Create and manage deployment versions in real time |
 | **More Reports** | 🚧 In Progress | Generate more reports of choice |
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TD
@@ -38,7 +38,7 @@ graph TD
     I --> J[Deployment]
 ```
 
-# 🧪 Demo Access
+#  Demo Access
 
 Test the deployed version with:
 
@@ -48,7 +48,7 @@ Test the deployed version with:
 
 (All demo data resets hourly)
 
-# 💻 Tech Stack
+#  Tech Stack
 Frontend:
 
 1. Next.js 15 + React 19
@@ -69,7 +69,7 @@ Backend:
 
 4. Puppeteer (for PDF generation)
 
-# 🛠️ Setup Guide
+# Setup Guide
 ### 1. Create a .env file in your Backend and Frontend directories following the .env-example provided
 ### 2. Clone repository
 git clone https://github.com/j-mugerwa/Network-Designer
@@ -89,7 +89,7 @@ npm install
 npm run dev
 ```
 
-# 🤝 Contribution Roadmap
+#  Contribution Roadmap
 ## Team Collaboration Module (Priority)
 
 Real-time design editing
@@ -105,7 +105,7 @@ Real-time design editing
 
 2. Scheduled exports
 
-# 🤝 Contributors
+# Contributors
 Recognition Guidelines:
 
 * First-time contributors: Added to "Contributors" list
@@ -121,14 +121,14 @@ Recognition Guidelines:
 https://github.com/j-mugerwa/
 
 
-# 🌟 Sponsors
+# Sponsors
 Support these amazing organizations:
 
 <div align="center"> <a href="https://www.bugemauniv.ac.ug/"> <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Bugema_logo.png" width="150" alt="Sponsor 1"> </a> </div>
 
 
 
-# 💖 Support the Project
+# Support the Project
 Help us improve network automation!
 
 [![Sponsor](https://img.shields.io/badge/Support-Project%20via%20GitHub%20Sponsors-blue)](https://github.com/sponsors/j-mugerwa)
