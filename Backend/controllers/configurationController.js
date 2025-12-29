@@ -463,7 +463,7 @@ const getDeploymentsByConfig = asyncHandler(async (req, res, next) => {
 			"deployments.0": { $exists: true },
 		});
 
-		// Get configurations with deployments
+		// Get configurations with associated deployments
 		const configs = await ConfigurationTemplate.find({
 			"deployments.0": { $exists: true },
 		})
